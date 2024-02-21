@@ -6,11 +6,13 @@
 #include "particle.h"
 #include "patch.h"
 
-#include <stddef.h>
+#include <cstddef>
 
-typedef struct particle_search_tree {
+struct particle_search_tree {
     Particle *particles;
     size_t particle_count;
-} particle_search_tree;
+
+    // __host__ __device__
+};
 
 #endif

@@ -4,12 +4,8 @@
 int main() {
   printf("Hi there!\n");
 
-  Particle p1{
-      1.0F, {}, {}, 0L, 0L, nullptr,
-  };
-  Particle p2{
-      1.0F, {}, {}, 0L, 0L, nullptr,
-  };
+  Particle p1{.radius = 1.0F};
+  Particle p2{.radius = 1.0F};
 
   printf("P1 intersects P2: %i\n", p1.intersects(p2));
 
