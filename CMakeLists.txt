@@ -19,7 +19,7 @@ add_executable(${PROJECT_NAME}
     ${CMAKE_SOURCE_DIR}/src/particle.cu
     ${CMAKE_SOURCE_DIR}/include/patch.h
     ${CMAKE_SOURCE_DIR}/include/particle.h
-    ${CMAKE_SOURCE_DIR}/include/vector.h
+    ${CMAKE_SOURCE_DIR}/include/vec.h
 )
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include)
