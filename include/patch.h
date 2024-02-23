@@ -3,7 +3,7 @@
 #ifndef PATCH_HPP
 #define PATCH_HPP
 
-struct Patch {
+struct __align__(32) patch_t {
     double radius{};
     double3 pos{};
 };
