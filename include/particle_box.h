@@ -1,6 +1,5 @@
 #pragma once
 
-
 #ifndef PARTICLE_BOX_HPP
 #define PARTICLE_BOX_HPP
 
@@ -18,19 +17,20 @@ struct __align__(64) particle_box_t {
 };
 
 void particle_box_init_host(particle_box_t &p,
-    size_t capacity = DEFAULT_CAPACITY);
+                            size_t capacity = DEFAULT_CAPACITY);
 
-__device__ void particle_box_init_device(particle_box_t &p,
-    size_t capacity = DEFAULT_CAPACITY);
+__device__ void particle_box_init_device(particle_box_t p,
+                                         size_t capacity = DEFAULT_CAPACITY);
 
 void particle_box_realloc_host(particle_box_t &p,
-    size_t capacity = DEFAULT_CAPACITY);
+                               size_t capacity = DEFAULT_CAPACITY);
 
 __device__ void particle_box_realloc_device(particle_box_t &p,
-    size_t capacity = DEFAULT_CAPACITY);
+                                            size_t capacity = DEFAULT_CAPACITY);
 
 void particle_box_add_particle_host(particle_box_t &box, double radius);
-__device__ void particle_box_add_particle_device(particle_box_t &p, double radius);
+__device__ void particle_box_add_particle_device(particle_box_t p,
+                                                 double radius);
 
 inline void particle_box_free_particles_host(particle_box_t &p) {
     for (size_t idx = 0; idx < p.particle_count; idx++) {
@@ -41,13 +41,8 @@ inline void particle_box_free_particles_host(particle_box_t &p) {
     p.capacity = 0;
 }
 
-__device__ inline void particle_box_free_particles_device(particle_box_t &p) {
-    for (size_t idx = 0; idx < p.particle_count; idx++) {
-        cudaFree(p.particles[idx].patches);
-    }
-    cudaFree(p.particles);
-    p.particle_count = 0;
-    p.capacity = 0;
-}
+__host__ __device__ void particle_box_free_particles_device(particle_box_t p);
+
+particle_box_t make_box(particle_box_t const &box);
 
 #endif
