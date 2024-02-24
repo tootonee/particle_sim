@@ -36,6 +36,32 @@ __device__ void particle_box_realloc_device(particle_box_t p, size_t capacity) {
   p.particles = new_particles;
 }
 
+__host__ void particle_box_add_particle_host(particle_box_t &box, double radius,
+                                             rng_gen &rng_x, rng_gen &rng_y,
+                                             rng_gen &rng_z, std::mt19937 &re) {
+  if (box.capacity >= box.particle_count) {
+    particle_box_realloc_host(box, box.particle_count * 2);
+  }
+
+  bool intersects = true;
+  particle_t *p = box.particles + box.particle_count;
+  p->radius = radius;
+  p->valid = true;
+  particle_init_host(box.particles[box.particle_count]);
+  do {
+    intersects = false;
+    random_particle_pos(*p, rng_x, rng_y, rng_z, re);
+
+    for (size_t i = 0; i < box.particle_count; i++) {
+      if (particle_intersects(box.particles[i], *p)) {
+        intersects = true;
+        break;
+      }
+    }
+  } while (intersects);
+  box.particle_count++;
+}
+
 void particle_box_add_particle_host(particle_box_t &box, double radius) {
   if (box.capacity >= box.particle_count) {
     particle_box_realloc_host(box, box.particle_count * 2);
@@ -65,11 +91,11 @@ __global__ void assign_patch(particle_t *p, patch_t *patches) {
 }
 
 particle_box_t make_box(particle_box_t const &box) {
-  particle_box_t res{
-      .dimensions = box.dimensions,
-      .particle_count = box.particle_count,
-      .capacity = box.capacity,
-  };
+  particle_box_t res{};
+
+  res.dimensions = box.dimensions;
+  res.particle_count = box.particle_count;
+  res.capacity = box.capacity;
 
   cudaMalloc(&res.particles, sizeof(particle_t) * box.capacity);
   cudaMemcpy(res.particles, box.particles,

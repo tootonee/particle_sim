@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+#include <random>
 
 static const size_t DEFAULT_CAPACITY = 16L;
 
@@ -29,5 +30,8 @@ __device__ void particle_init_device(particle_t &p,
                                      size_t capacity = DEFAULT_CAPACITY);
 
 __host__ void random_particle_pos(particle_t &p, double3 dimensions);
+using rng_gen = std::uniform_real_distribution<double>;
+__host__ void random_particle_pos(particle_t &p, rng_gen &rng_x, rng_gen &rng_y,
+                                  rng_gen &rng_z, std::mt19937 &re);
 
 #endif
