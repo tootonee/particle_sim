@@ -20,16 +20,16 @@ set(PROJECT_NAME particle_sim)
 project(${PROJECT_NAME} CUDA)
 
 include_directories(${CMAKE_SOURCE_DIR}/include/)
+file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/include/*.h)
+
 
 add_executable(${PROJECT_NAME} 
     ${CMAKE_SOURCE_DIR}/src/main.cu
     ${CMAKE_SOURCE_DIR}/src/particle.cu
     ${CMAKE_SOURCE_DIR}/src/particle_box.cu
-    ${CMAKE_SOURCE_DIR}/include/patch.h
-    ${CMAKE_SOURCE_DIR}/include/particle.h
-    ${CMAKE_SOURCE_DIR}/include/particle_box.h
-    ${CMAKE_SOURCE_DIR}/include/cell_view.h
-    ${CMAKE_SOURCE_DIR}/include/vec.h
+    ${CMAKE_SOURCE_DIR}/src/particle_box.cu
+    ${CMAKE_SOURCE_DIR}/src/pdb_export.cu
+    ${HEADERS}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

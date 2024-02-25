@@ -12,8 +12,7 @@
 
 static const size_t DEFAULT_CAPACITY = 16L;
 
-struct __align__(32) particle_t
-{
+struct __align__(32) particle_t {
     double radius{};
     double3 pos{0, 0, 0};
     double4 orient{0, 0, 0, 0};
