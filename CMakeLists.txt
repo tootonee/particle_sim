@@ -1,16 +1,24 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+if(NOT CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES 75)
 endif()
+
+if (NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE Release)
+endif ()
+
+include(${CMAKE_SOURCE_DIR}/cmake/CompilerWarnings.cmake)
+set(WARNINGS_AS_ERRORS ON)
+
+##########################################################
+# Project name, files, packages, libraries and so on
+##########################################################
 
 set(PROJECT_NAME particle_sim)
 project(${PROJECT_NAME} CUDA)
 
-##########################################################
-# Project files, packages, libraries and so on
-##########################################################
 include_directories(${CMAKE_SOURCE_DIR}/include/)
 
 add_executable(${PROJECT_NAME} 

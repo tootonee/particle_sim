@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef VEC_MATRH_HPP
-#define VEC_MATRH_HPP
+#ifndef VEC_MATH_H
+#define VEC_MATH_H
 
 static constexpr double ERR = 0.0001F;
 
