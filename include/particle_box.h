@@ -31,14 +31,14 @@ __device__ void particle_box_realloc_device(particle_box_t &p,
                                             size_t capacity = DEFAULT_CAPACITY);
 
 using rng_gen = std::uniform_real_distribution<double>;
+void particle_box_add_particle_host(particle_box_t &box, particle_t const &p);
 void particle_box_add_particle_host(particle_box_t &box, double radius);
-__host__ void
-particle_box_add_particle_host(particle_box_t &box, double radius,
+void particle_box_add_particle_host(particle_box_t &box, double radius,
                                rng_gen &rng_x, rng_gen &rng_y,
                                rng_gen &rng_z, std::mt19937 &re);
 __device__ void
-particle_box_add_particle_device(particle_box_t &p,
-                                 double radius);
+particle_box_add_particle_device(particle_box_t &box,
+                                 particle_t const &p);
 
 __host__ __device__ void
 particle_box_remove_particle(particle_box_t &p,

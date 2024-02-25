@@ -28,6 +28,7 @@ add_executable(${PROJECT_NAME}
     ${CMAKE_SOURCE_DIR}/include/patch.h
     ${CMAKE_SOURCE_DIR}/include/particle.h
     ${CMAKE_SOURCE_DIR}/include/particle_box.h
+    ${CMAKE_SOURCE_DIR}/include/cell_view.h
     ${CMAKE_SOURCE_DIR}/include/vec.h
 )
 

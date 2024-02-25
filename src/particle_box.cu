@@ -44,7 +44,7 @@ __device__ void particle_box_realloc_device(particle_box_t &p, size_t capacity)
   p.particles = new_particles;
 }
 
-__host__ void particle_box_add_particle_host(particle_box_t &box, double radius,
+void particle_box_add_particle_host(particle_box_t &box, double radius,
                                              rng_gen &rng_x, rng_gen &rng_y,
                                              rng_gen &rng_z, std::mt19937 &re)
 {
@@ -101,6 +101,25 @@ void particle_box_add_particle_host(particle_box_t &box, double radius)
       }
     }
   } while (intersects);
+  box.particle_count++;
+}
+
+void particle_box_add_particle_host(particle_box_t &box, particle_t const &p) {
+  if (box.capacity >= box.particle_count)
+  {
+    particle_box_realloc_host(box, box.particle_count * 2);
+  }
+  box.particles[box.particle_count] = p;
+  box.particle_count++;
+}
+
+__device__ void particle_box_add_particle_device(particle_box_t &box, 
+  particle_t const &p) {
+  if (box.capacity >= box.particle_count)
+  {
+    particle_box_realloc_device(box, box.particle_count * 2);
+  }
+  box.particles[box.particle_count] = p;
   box.particle_count++;
 }
 
