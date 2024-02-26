@@ -29,6 +29,7 @@ add_executable(${PROJECT_NAME}
     ${CMAKE_SOURCE_DIR}/src/particle_box.cu
     ${CMAKE_SOURCE_DIR}/src/particle_box.cu
     ${CMAKE_SOURCE_DIR}/src/pdb_export.cu
+    ${CMAKE_SOURCE_DIR}/src/cell_view.cu
     ${HEADERS}
 )
 
