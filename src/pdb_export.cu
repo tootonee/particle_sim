@@ -23,13 +23,13 @@ void export_particles_to_pdb(particle_box_t const &box,
               << box.particles[p_idx].pos.x << std::right << std::setw(8)
               << box.particles[p_idx].pos.y << std::right << std::setw(8)
               << box.particles[p_idx].pos.z << std::right << std::setw(8)
-              << "1.00  1.00" << std::endl;
+              << "  1.00  1.00" << std::endl;
 #endif
     file << "ATOM" << std::right << std::setw(7) << std::fixed << (p_idx + 1)
               << "  N   NONE   1" << std::right << std::setw(12) << std::fixed
               << box.particles[p_idx].pos.x << std::right << std::setw(8)
               << box.particles[p_idx].pos.y << std::right << std::setw(8)
               << box.particles[p_idx].pos.z << std::right << std::setw(8)
-              << "1.00  1.00" << std::endl;
+              << "  1.00  1.00" << std::endl;
   }
 }

@@ -20,6 +20,7 @@ void cell_view_alloc_host(
     view.cells_per_axis = cells_per_axis;
     view.cells = new cell_t[cell_count];
     view.cell_size = cell_size;
+    view.box = box;
 }
 
 void cell_view_init_host(cell_view_t &view, particle_box_t box, 
@@ -27,7 +28,7 @@ void cell_view_init_host(cell_view_t &view, particle_box_t box,
     cell_view_alloc_host(view, box, cells_per_axis);
     size_t p_idx = 0;
 
-    while (p_idx != box.particle_count) {
+    while (p_idx < box.particle_count) {
         if (!cell_view_add_particle(view, box.particles[p_idx])) {
             view.cells_per_axis *= 2;
             cell_view_free_host(view);
@@ -38,8 +39,38 @@ void cell_view_init_host(cell_view_t &view, particle_box_t box,
     }
 }
 
+void cell_view_add_particle_host(cell_view_t &view,
+                                    double radius,
+                                    rng_gen &rng_x, rng_gen &rng_y,
+                                    rng_gen &rng_z, std::mt19937 &re) {
+  particle_t p{};
+  p.radius = radius;
+  p.idx = view.box.particle_count;
+  particle_init_host(p);
+  do {
+    random_particle_pos(p, rng_x, rng_y, rng_z, re);
+  } while (cell_view_particle_intersects(view, p));
+  cell_view_add_particle_to_box_host(view, p);
+}
+
+void cell_view_add_particle_to_box_host(cell_view_t &view,
+    particle_t const &p) {
+    size_t p_idx = view.box.particle_count;
+    particle_box_add_particle_host(view.box, p);
+
+    while (p_idx < view.box.particle_count) {
+        if (!cell_view_add_particle(view, view.box.particles[p_idx])) {
+            view.cells_per_axis *= 2;
+            cell_view_free_host(view);
+            cell_view_alloc_host(view, view.box, view.cells_per_axis);
+            p_idx = 0;
+        }
+        p_idx++;
+    }
+}
+
 __host__ __device__ bool cell_view_add_particle(
-    cell_view_t &view, particle_t const p
+    cell_view_t &view, particle_t const & p
 ) {
     size_t cell_idx = cell_view_get_cell_idx(view, p);
     cell_t &cell = view.cells[cell_idx];
@@ -50,14 +81,43 @@ __host__ __device__ bool cell_view_add_particle(
     return true;
 }
 
-__host__ __device__ size_t cell_view_get_cell_idx(
-    cell_view_t const &view, particle_t const &p
-) {
-    uint3 particle_idx = {
-        .x = static_cast<uint32_t>(p.pos.x / view.cell_size.x),
-        .y = static_cast<uint32_t>(p.pos.y / view.cell_size.y),
-        .z = static_cast<uint32_t>(p.pos.z / view.cell_size.z),
-    };
-    return particle_idx.x * view.cells_per_axis * view.cells_per_axis +
-        particle_idx.y * view.cells_per_axis + particle_idx.z;
+__host__ __device__ void cell_view_remove_particle(cell_view_t &view, particle_t const &p) {
+    size_t cell_idx = cell_view_get_cell_idx(view, p);
+    cell_t &cell = view.cells[cell_idx];
+    for (size_t i = 0; i < cell.num_particles; i++) {
+        if (cell.particle_indices[i] == p.idx) {
+            cell.particle_indices[i] = cell.particle_indices[cell.num_particles - 1];
+            cell.num_particles--;
+            return;
+        }
+    }
+
+}
+
+__host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
+    particle_t const &p) {
+    // check cell with particle, also neighboring cells by combining different
+    // combinations of -1, 0, 1 for each axis
+    for (double coeff_x = -1; coeff_x <= 1; coeff_x += 1) {
+        for (double coeff_y = -1; coeff_y <= 1; coeff_y += 1) {
+            for (double coeff_z = -1; coeff_z <= 1; coeff_z += 1) {
+                particle_t const p1 {
+                    .radius = p.radius,
+                    .pos = {
+                        .x = p.pos.x + coeff_x * view.cell_size.x,
+                        .y = p.pos.y + coeff_y * view.cell_size.y,
+                        .z = p.pos.z + coeff_z * view.cell_size.z,
+                    },
+                };
+                size_t cell_idx = cell_view_get_cell_idx(view, p1);
+                cell_t const &cell = view.cells[cell_idx];
+                for (size_t i = 0; i < cell.num_particles; i++) {
+                    if (particle_intersects(p, view.box.particles[cell.particle_indices[i]])) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }

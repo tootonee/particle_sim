@@ -9,7 +9,7 @@
 __host__ __device__ bool particle_intersects(particle_t const &lhs,
                                              particle_t const &rhs) {
   double const diameter = lhs.radius + rhs.radius;
-  return (rhs.valid) && (lhs.valid) && (distance(lhs.pos, rhs.pos) < diameter);
+  return distance(lhs.pos, rhs.pos) < diameter;
 }
 
 void particle_init_host(particle_t &p, size_t capacity) {

@@ -46,7 +46,6 @@ void particle_box_add_particle_host(particle_box_t &box, double radius,
   bool intersects = true;
   particle_t *p = box.particles + box.particle_count;
   p->radius = radius;
-  p->valid = true;
   p->idx = box.particle_count;
   particle_init_host(box.particles[box.particle_count]);
   do {
@@ -71,7 +70,6 @@ void particle_box_add_particle_host(particle_box_t &box, double radius) {
   bool intersects = true;
   particle_t *p = box.particles + box.particle_count;
   p->radius = radius;
-  p->valid = true;
   p->idx = box.particle_count;
   particle_init_host(box.particles[box.particle_count]);
   do {
@@ -185,7 +183,6 @@ particle_box_t make_box_uniform_particles_host(double3 const dimensions,
       for (size_t z = 0; z < count_per_axis; z++) {
         particle_t p{};
         p.radius = radius;
-        p.valid = true;
         p.pos.x = x * axis_steps.x + radius;
         p.pos.y = y * axis_steps.y + radius;
         p.pos.z = z * axis_steps.z + radius;

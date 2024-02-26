@@ -19,7 +19,6 @@ struct __align__(32) particle_t {
     patch_t *patches{};
     size_t patch_count{DEFAULT_CAPACITY};
     size_t idx{};
-    bool valid{true};
 };
 
 __host__ __device__ bool particle_intersects(const particle_t &p1,
