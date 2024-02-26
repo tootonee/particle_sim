@@ -17,7 +17,8 @@ struct __align__(32) particle_t {
     double3 pos{0, 0, 0};
     double4 orient{0, 0, 0, 0};
     patch_t *patches{};
-    unsigned int patch_count{DEFAULT_CAPACITY};
+    size_t patch_count{DEFAULT_CAPACITY};
+    size_t idx{};
     bool valid{true};
 };
 

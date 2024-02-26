@@ -47,6 +47,7 @@ void particle_box_add_particle_host(particle_box_t &box, double radius,
   particle_t *p = box.particles + box.particle_count;
   p->radius = radius;
   p->valid = true;
+  p->idx = box.particle_count;
   particle_init_host(box.particles[box.particle_count]);
   do {
     intersects = false;
@@ -71,6 +72,7 @@ void particle_box_add_particle_host(particle_box_t &box, double radius) {
   particle_t *p = box.particles + box.particle_count;
   p->radius = radius;
   p->valid = true;
+  p->idx = box.particle_count;
   particle_init_host(box.particles[box.particle_count]);
   do {
     intersects = false;
@@ -91,6 +93,7 @@ void particle_box_add_particle_host(particle_box_t &box, particle_t const &p) {
     particle_box_realloc_host(box, box.particle_count * 2);
   }
   box.particles[box.particle_count] = p;
+  box.particles[box.particle_count].idx = box.particle_count;
   box.particle_count++;
 }
 
@@ -100,6 +103,7 @@ __device__ void particle_box_add_particle_device(particle_box_t box,
     particle_box_realloc_device(box, box.particle_count * 2);
   }
   box.particles[box.particle_count] = p;
+  box.particles[box.particle_count].idx = box.particle_count;
   box.particle_count++;
 }
 
@@ -146,7 +150,9 @@ __host__ __device__ void particle_box_swap_particles(particle_box_t &p,
   }
   particle_t tmp = p.particles[fst];
   p.particles[fst] = p.particles[snd];
+  p.particles[fst].idx = fst;
   p.particles[snd] = tmp;
+  p.particles[snd].idx = snd;
 }
 
 __global__ void freePatches(particle_t *p) { cudaFree(p->patches); }
@@ -165,8 +171,7 @@ particle_box_t make_box_uniform_particles_host(double3 const dimensions,
                                                size_t const count_per_axis) {
   particle_box_t res{};
   res.dimensions = dimensions;
-  res.particle_count = count_per_axis * count_per_axis * count_per_axis;
-  res.capacity = res.particle_count;
+  res.capacity = count_per_axis * count_per_axis * count_per_axis;
   particle_box_init_host(res, res.capacity);
 
   double3 axis_steps = {
@@ -184,9 +189,12 @@ particle_box_t make_box_uniform_particles_host(double3 const dimensions,
         p.pos.x = x * axis_steps.x + radius;
         p.pos.y = y * axis_steps.y + radius;
         p.pos.z = z * axis_steps.z + radius;
+        p.idx = res.particle_count;
         particle_init_host(p);
+
         res.particles[x * count_per_axis * count_per_axis + y * count_per_axis +
                       z] = p;
+        res.particle_count += 1;
       }
     }
   }
