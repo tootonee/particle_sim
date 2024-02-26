@@ -1,7 +1,7 @@
+#include "cell_view.h"
 #include "particle.h"
 #include "particle_box.h"
 #include "pdb_export.h"
-#include "cell_view.h"
 
 #include <iostream>
 #include <random>
@@ -18,7 +18,7 @@ int main() {
   particle_box_t box{};
   box.dimensions = {10, 10, 10};
   particle_box_init_host(box, 512);
-  std::cout << "Box cap = " << box.capacity << std::endl; 
+  std::cout << "Box cap = " << box.capacity << std::endl;
 
   // particle_t p1{.radius = 1.0F};
   // particle_t p2{.radius = 1.0F};
@@ -32,19 +32,18 @@ int main() {
   cell_view_t view{};
   cell_view_init_host(view, std::move(box), 8);
   box = {};
+  // particle_box_init_host(box, 512);
 
   for (size_t i = 0; i < 512; i++) {
+    std::cout << "I = " << i << std::endl;
     cell_view_add_particle_host(view, 0.5, unif_x, unif_y, unif_z, re);
-    std::cout << "(" << view.box.particles[i].pos.x <<
-    ", " << view.box.particles[i].pos.y <<
-    ", " << view.box.particles[i].pos.z << ")," << 
-    std::endl;
     // particle_box_add_particle_host(box, 0.5, unif_x, unif_y, unif_z, re);
   }
 
   export_particles_to_pdb(view.box, "stochastic.pdb");
   particle_box_free_particles_host(view.box);
   cell_view_free_host(view);
+  // particle_box_free_particles_host(box);
 
   particle_box_t b = make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   export_particles_to_pdb(b, "uniform.pdb");

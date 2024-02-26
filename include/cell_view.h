@@ -9,7 +9,7 @@
 static constexpr size_t MAX_PARTICLES_PER_CELL = 7;
 
 struct __align__(32) cell_t {
-    size_t num_particles{};
+    size_t num_particles{0};
     size_t particle_indices[7]{};
 };
 
