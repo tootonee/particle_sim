@@ -3,22 +3,23 @@
 #ifndef PARTICLE_H
 #define PARTICLE_H
 
-#include "patch.h"
-
-#include <cstddef>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+
+#include <cstddef>
 #include <random>
+
+#include "patch.h"
 
 static const size_t DEFAULT_CAPACITY = 16L;
 
 struct __align__(32) particle_t {
-    double radius{};
-    double3 pos{0, 0, 0};
-    double4 orient{0, 0, 0, 0};
-    patch_t *patches{};
-    size_t patch_count{DEFAULT_CAPACITY};
-    size_t idx{};
+  double radius{};
+  double3 pos{0, 0, 0};
+  double4 orient{0, 0, 0, 0};
+  patch_t *patches{};
+  size_t patch_count{DEFAULT_CAPACITY};
+  size_t idx{};
 };
 
 __host__ __device__ bool particle_intersects(const particle_t &p1,
