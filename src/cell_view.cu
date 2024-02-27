@@ -7,9 +7,11 @@ void cell_view_free_host(cell_view_t &view) { delete[] view.cells; }
 
 void cell_view_alloc_host(cell_view_t &view, particle_box_t box,
                           size_t const cells_per_axis) {
-  double3 cell_size = {.x = box.dimensions.x / cells_per_axis,
-                       .y = box.dimensions.y / cells_per_axis,
-                       .z = box.dimensions.z / cells_per_axis};
+  double3 cell_size = {
+      .x = box.dimensions.x / cells_per_axis,
+      .y = box.dimensions.y / cells_per_axis,
+      .z = box.dimensions.z / cells_per_axis,
+  };
   size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
   view.cells_per_axis = cells_per_axis;
   view.cells = new cell_t[cell_count];
@@ -94,6 +96,8 @@ __host__ __device__ void cell_view_remove_particle(cell_view_t &view,
 
 __host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
                                                        particle_t const &p) {
+  const size_t cell_cnt =
+      view.cells_per_axis * view.cells_per_axis * view.cells_per_axis;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   for (double coeff_x = -1; coeff_x <= 1; coeff_x += 1) {
@@ -116,8 +120,7 @@ __host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
         size_t idx_z = (size_t)(z / view.cell_size.z);
         size_t cell_idx = idx_x * view.cells_per_axis * view.cells_per_axis +
                           idx_y * view.cells_per_axis + idx_z;
-        if (cell_idx >=
-            view.cells_per_axis * view.cells_per_axis * view.cells_per_axis) {
+        if (cell_idx >= cell_cnt) {
           continue;
         }
         cell_t const &cell = view.cells[cell_idx];
