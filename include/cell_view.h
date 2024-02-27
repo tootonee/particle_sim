@@ -53,9 +53,9 @@ inline __host__ __device__ size_t cell_view_get_cell_idx(
     cell_view_t const &view, particle_t const &p
 ) {
     uint3 const particle_idx = {
-        .x = static_cast<uint32_t>(p.pos.x / view.cell_size.x),
-        .y = static_cast<uint32_t>(p.pos.y / view.cell_size.y),
-        .z = static_cast<uint32_t>(p.pos.z / view.cell_size.z),
+        .x = (uint32_t)(p.pos.x / view.cell_size.x),
+        .y = (uint32_t)(p.pos.y / view.cell_size.y),
+        .z = (uint32_t)(p.pos.z / view.cell_size.z),
     };
     return particle_idx.x * view.cells_per_axis * view.cells_per_axis +
         particle_idx.y * view.cells_per_axis + particle_idx.z;

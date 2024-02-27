@@ -105,15 +105,25 @@ __host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
     // check cell with particle, also neighboring cells by combining different
     // combinations of -1, 0, 1 for each axis
     for (double coeff_x = -1; coeff_x <= 1; coeff_x += 1) {
+        const double x = p.pos.x + coeff_x * view.cell_size.x;
+        if (x < 0 || x > view.box.dimensions.x) {
+            continue;
+        }
+        size_t idx_x = (size_t)(x / view.cell_size.x);
         for (double coeff_y = -1; coeff_y <= 1; coeff_y += 1) {
+            const double y = p.pos.y + coeff_y * view.cell_size.y;
+            if (y < 0 || y > view.box.dimensions.y) {
+                continue;
+            }
+            size_t idx_y = (size_t)(y / view.cell_size.y);
             for (double coeff_z = -1; coeff_z <= 1; coeff_z += 1) {
-                particle_t p1 {};
-                p1.pos = {
-                    .x = p.pos.x + coeff_x * view.cell_size.x,
-                    .y = p.pos.y + coeff_y * view.cell_size.y,
-                    .z = p.pos.z + coeff_z * view.cell_size.z,
-                };
-                size_t cell_idx = cell_view_get_cell_idx(view, p1);
+                double const z = p.pos.z + coeff_z * view.cell_size.z;
+                if (z < 0 || z > view.box.dimensions.z) {
+                    continue;
+                }
+                size_t idx_z = (size_t)(z / view.cell_size.z);
+                size_t cell_idx = idx_x * view.cells_per_axis * view.cells_per_axis +
+                    idx_y * view.cells_per_axis + idx_z;
                 if (cell_idx >= view.cells_per_axis * view.cells_per_axis * view.cells_per_axis) {
                     continue;
                 }
