@@ -23,15 +23,14 @@ void particle_box_realloc_host(particle_box_t &p, size_t capacity) {
   p.particles = new_particles;
 }
 
-__device__ void particle_box_realloc_device(particle_box_t p, size_t capacity) {
+void particle_box_realloc_device(particle_box_t p, size_t capacity) {
   if (capacity <= p.capacity) {
     return;
   }
   particle_t *new_particles;
   cudaMalloc(&new_particles, sizeof(particle_t) * capacity);
-  for (size_t idx = 0; idx < p.particle_count; idx++) {
-    new_particles[idx] = p.particles[idx];
-  }
+  cudaMemcpy(new_particles, p.particles, sizeof(particle_t) * p.particle_count,
+             cudaMemcpyDeviceToDevice);
   cudaFree(p.particles);
   p.particles = new_particles;
 }
@@ -95,18 +94,21 @@ void particle_box_add_particle_host(particle_box_t &box, particle_t const &p) {
   box.particle_count++;
 }
 
-__device__ void particle_box_add_particle_device(particle_box_t box,
-                                                 particle_t const &p) {
+__global__ void assign_patch(particle_t *p, patch_t *patches) {
+  p->patches = patches;
+}
+
+void particle_box_add_particle_device(particle_box_t box,
+                                                 particle_t const p) {
   if (box.capacity >= box.particle_count) {
     particle_box_realloc_device(box, box.particle_count * 2);
   }
   box.particles[box.particle_count] = p;
   box.particles[box.particle_count].idx = box.particle_count;
   box.particle_count++;
-}
-
-__global__ void assign_patch(particle_t *p, patch_t *patches) {
-  p->patches = patches;
+  cudaMalloc(&box.particles[box.particle_count].patches, sizeof(patch_t) * p.patch_count);
+  cudaMemcpy(box.particles[box.particle_count].patches, p.patches,
+             sizeof(patch_t) * p.patch_count, cudaMemcpyHostToDevice);
 }
 
 particle_box_t make_box(particle_box_t const &box) {
@@ -153,11 +155,9 @@ __host__ __device__ void particle_box_swap_particles(particle_box_t &p,
   p.particles[snd].idx = snd;
 }
 
-__global__ void freePatches(particle_t *p) { cudaFree(p->patches); }
-
-__host__ __device__ void particle_box_free_particles_device(particle_box_t &p) {
+void particle_box_free_particles_device(particle_box_t &p) {
   for (size_t idx = 0; idx < p.particle_count; idx++) {
-    freePatches<<<1, 1>>>(p.particles + idx);
+    cudaFree(p.particles[idx].patches);
   }
   cudaFree(p.particles);
   p.particle_count = 0;

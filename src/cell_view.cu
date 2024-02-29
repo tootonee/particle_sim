@@ -67,6 +67,23 @@ void cell_view_add_particle_to_box_host(cell_view_t &view,
   }
 }
 
+__host__ __device__ void cell_view_remove_particle(cell_view_t &view,
+                                                   particle_t const &p) {
+  size_t cell_idx = cell_view_get_cell_idx(view, p);
+  cell_t &cell = view.cells[cell_idx];
+  if (cell.num_particles == 0) {
+    return;
+  }
+
+  for (size_t i = 0; i < cell.num_particles; i++) {
+    if (cell.particle_indices[i] == p.idx) {
+      cell.particle_indices[i] = cell.particle_indices[cell.num_particles - 1];
+      cell.num_particles--;
+      return;
+    }
+  }
+}
+
 __host__ __device__ bool cell_view_add_particle(cell_view_t &view,
                                                 particle_t const &p) {
   size_t cell_idx = cell_view_get_cell_idx(view, p);
@@ -78,20 +95,16 @@ __host__ __device__ bool cell_view_add_particle(cell_view_t &view,
   return true;
 }
 
-__host__ __device__ void cell_view_remove_particle(cell_view_t &view,
-                                                   particle_t const &p) {
-  size_t cell_idx = cell_view_get_cell_idx(view, p);
-  cell_t &cell = view.cells[cell_idx];
-  if (cell.num_particles == 0) {
-    return;
-  }
-  for (size_t i = 0; i < cell.num_particles; i++) {
-    if (cell.particle_indices[i] == p.idx) {
-      cell.particle_indices[i] = cell.particle_indices[cell.num_particles - 1];
-      cell.num_particles--;
-      return;
-    }
-  }
+cell_view_t cell_view_device_from_host_obj(cell_view_t const &view) {
+  cell_view_t view_device{};
+  view_device.cells_per_axis = view.cells_per_axis;
+  view_device.cell_size = view.cell_size;
+  view_device.box = make_box(view.box);
+  size_t cell_count = view.cells_per_axis * view.cells_per_axis *
+                      view.cells_per_axis * sizeof(cell_t);
+  cudaMalloc(&view_device.cells, cell_count);
+  cudaMemcpy(view_device.cells, view.cells, cell_count, cudaMemcpyHostToDevice);
+  return view_device;
 }
 
 __host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
