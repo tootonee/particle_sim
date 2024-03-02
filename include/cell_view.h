@@ -29,6 +29,8 @@ void cell_view_add_particle_to_box_host(cell_view_t &view, particle_t const &p);
 void cell_view_add_particle_host(cell_view_t &view, double radius,
                                  rng_gen &rng_x, rng_gen &rng_y, rng_gen &rng_z,
                                  std::mt19937 &re);
+double3 cell_view_try_random_particle_pos(cell_view_t &view, size_t const particle_idx,
+                                 rng_gen &rng_x, std::mt19937 &re);
 
 cell_view_t cell_view_device_from_host_obj(cell_view_t const &view);
 
@@ -46,6 +48,9 @@ __host__ __device__ void cell_view_remove_particle(cell_view_t &view,
                                                    particle_t const &p);
 __host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
                                                        particle_t const &p);
+
+__host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
+    double3 const pos, double const radius);
 
 inline __host__ __device__ size_t
 cell_view_get_cell_idx(cell_view_t const &view, particle_t const &p) {

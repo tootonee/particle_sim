@@ -43,3 +43,15 @@ __host__ void random_particle_pos(particle_t &p, rng_gen &rng_x, rng_gen &rng_y,
   p.pos.y = rng_y(re);
   p.pos.z = rng_z(re);
 }
+
+__host__ __device__ bool particle_intersects(const particle_t &p1,
+                                             double3 const pos, double const radius) {
+  double const diameter = p1.radius + radius;
+  return distance(p1.pos, pos) < diameter;
+}
+
+__host__ __device__ bool particle_intersects(double3 const pos1, double const radius1,
+                                             double3 const pos2, double const radius2){
+  double const diameter = radius1 + radius2;
+  return distance(pos1, pos2) < diameter;
+}

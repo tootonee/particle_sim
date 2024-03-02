@@ -25,6 +25,12 @@ struct __align__(32) particle_t {
 __host__ __device__ bool particle_intersects(const particle_t &p1,
                                              const particle_t &p2);
 
+__host__ __device__ bool particle_intersects(const particle_t &p1,
+                                             double3 const pos, double const radius);
+
+__host__ __device__ bool particle_intersects(double3 const pos1, double const radius1,
+                                             double3 const pos2, double const radius2);
+
 void particle_init_host(particle_t &p, size_t capacity = DEFAULT_CAPACITY);
 
 __device__ void particle_init_device(particle_t &p,
