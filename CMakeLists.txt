@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_CUDA_ARCHITECTURES)
@@ -17,16 +19,14 @@ set(WARNINGS_AS_ERRORS ON)
 ##########################################################
 
 set(PROJECT_NAME particle_sim)
-project(${PROJECT_NAME} CUDA)
+project(${PROJECT_NAME} CXX CUDA)
 
-include_directories(${CMAKE_SOURCE_DIR}/include/)
 file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/include/*.h)
 
 
 add_executable(${PROJECT_NAME} 
     ${CMAKE_SOURCE_DIR}/src/main.cu
     ${CMAKE_SOURCE_DIR}/src/particle.cu
-    ${CMAKE_SOURCE_DIR}/src/particle_box.cu
     ${CMAKE_SOURCE_DIR}/src/particle_box.cu
     ${CMAKE_SOURCE_DIR}/src/pdb_export.cu
     ${CMAKE_SOURCE_DIR}/src/cell_view.cu
@@ -36,7 +36,7 @@ add_executable(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include)
 
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
+#[[ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11) ]]
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

@@ -3,99 +3,73 @@
 #include "particle_box.h"
 #include <cmath>
 
-void cell_view_free_host(cell_view_t &view) { delete[] view.cells; }
-
-void cell_view_alloc_host(cell_view_t &view, particle_box_t box,
-                          size_t const cells_per_axis) {
-  double3 cell_size = {
-      .x = box.dimensions.x / cells_per_axis,
-      .y = box.dimensions.y / cells_per_axis,
-      .z = box.dimensions.z / cells_per_axis,
-  };
+void cell_view_t::alloc_cells() {
   size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
-  view.cells_per_axis = cells_per_axis;
-  view.cells = new cell_t[cell_count];
-  view.cell_size = cell_size;
-  view.box = box;
-  for (size_t i = 0; i < cell_count; i++) {
-    view.cells[i].num_particles = 0;
-  }
+  cudaMallocManaged(&cells, sizeof(cell_t) * cell_count);
 }
 
-void cell_view_init_host(cell_view_t &view, particle_box_t box,
-                         size_t const cells_per_axis) {
-  cell_view_alloc_host(view, box, cells_per_axis);
-  size_t p_idx = 0;
+void cell_view_t::free_cells() { cudaFree(cells); }
+
+void cell_view_t::free() {
+  free_cells();
+  box.free_particles();
+}
+
+__host__ __device__ bool cell_view_t::add_particle(particle_t const &p) {
+  size_t cell_idx = get_cell_idx(p);
+  if (cell_idx >= cells_per_axis * cells_per_axis * cells_per_axis) {
+    return false;
+  }
+  cell_t &cell = cells[cell_idx];
+  if (cell.num_particles >= MAX_PARTICLES_PER_CELL) {
+    return false;
+  }
+  cell.particle_indices[cell.num_particles++] = p.idx;
+  return true;
+}
+
+void cell_view_t::add_particle_to_box(particle_t const &p) {
+  size_t p_idx = box.particle_count;
+  box.add_particle(p);
 
   while (p_idx < box.particle_count) {
-    if (!cell_view_add_particle(view, box.particles[p_idx])) {
-      view.cells_per_axis *= 2;
-      cell_view_free_host(view);
-      cell_view_alloc_host(view, box, view.cells_per_axis);
+    if (!add_particle(box.particles[p_idx])) {
+      free_cells();
+      alloc_cells();
       p_idx = 0;
     }
     p_idx++;
   }
 }
 
-void cell_view_add_particle_host(cell_view_t &view, double radius,
-                                 rng_gen &rng_x, rng_gen &rng_y, rng_gen &rng_z,
-                                 std::mt19937 &re) {
-  particle_t p{};
-  p.radius = radius;
-  p.idx = view.box.particle_count;
-  particle_init_host(p);
-  do {
-    random_particle_pos(p, rng_x, rng_y, rng_z, re);
-  } while (cell_view_particle_intersects(view, p));
-  cell_view_add_particle_to_box_host(view, p);
-}
-
-double3 cell_view_try_random_particle_pos(cell_view_t &view, size_t const particle_idx,
-                                 rng_gen &rng, std::mt19937 &re) {
-  if (particle_idx >= view.box.particle_count) {
-    return {-1, -1 ,-1};
+double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
+                                              rng_gen &rng, std::mt19937 &re) {
+  if (particle_idx >= box.particle_count) {
+    return {-1, -1, -1};
   }
 
-  particle_t const& p_orig = view.box.particles[particle_idx];
+  particle_t const &p_orig = box.particles[particle_idx];
   double radius = p_orig.radius;
   double3 disp = {
-    view.cell_size.x * (rng(re) - 0.5),
-    view.cell_size.y * (rng(re) - 0.5),
-    view.cell_size.z * (rng(re) - 0.5),
+      cell_size.x * (rng(re) - 0.5),
+      cell_size.y * (rng(re) - 0.5),
+      cell_size.z * (rng(re) - 0.5),
   };
   disp = {
-    p_orig.pos.x + disp.x,
-    p_orig.pos.y + disp.y,
-    p_orig.pos.z + disp.z,
+      p_orig.pos.x + disp.x,
+      p_orig.pos.y + disp.y,
+      p_orig.pos.z + disp.z,
   };
 
-  if (cell_view_particle_intersects(view, disp, radius)) {
-    return {-1, -1 ,-1};
+  if (particle_intersects(disp, radius)) {
+    return {-1, -1, -1};
   }
   return disp;
 }
 
-void cell_view_add_particle_to_box_host(cell_view_t &view,
-                                        particle_t const &p) {
-  size_t p_idx = view.box.particle_count;
-  particle_box_add_particle_host(view.box, p);
-
-  while (p_idx < view.box.particle_count) {
-    if (!cell_view_add_particle(view, view.box.particles[p_idx])) {
-      view.cells_per_axis *= 2;
-      cell_view_free_host(view);
-      cell_view_alloc_host(view, view.box, view.cells_per_axis);
-      p_idx = 0;
-    }
-    p_idx++;
-  }
-}
-
-__host__ __device__ void cell_view_remove_particle(cell_view_t &view,
-                                                   particle_t const &p) {
-  size_t cell_idx = cell_view_get_cell_idx(view, p);
-  cell_t &cell = view.cells[cell_idx];
+__host__ __device__ void cell_view_t::remove_particle(particle_t const &p) {
+  size_t cell_idx = get_cell_idx(p);
+  cell_t &cell = cells[cell_idx];
   if (cell.num_particles == 0) {
     return;
   }
@@ -107,64 +81,41 @@ __host__ __device__ void cell_view_remove_particle(cell_view_t &view,
       return;
     }
   }
-}
-
-__host__ __device__ bool cell_view_add_particle(cell_view_t &view,
-                                                particle_t const &p) {
-  size_t cell_idx = cell_view_get_cell_idx(view, p);
-  cell_t &cell = view.cells[cell_idx];
-  if (cell.num_particles >= MAX_PARTICLES_PER_CELL) {
-    return false;
+  if (p.idx <= box.particle_count && box.particles[p.idx] == p) {
+    box.remove_particle(p.idx);
   }
-  cell.particle_indices[cell.num_particles++] = p.idx;
-  return true;
 }
 
-cell_view_t cell_view_device_from_host_obj(cell_view_t const &view) {
-  cell_view_t view_device{};
-  view_device.cells_per_axis = view.cells_per_axis;
-  view_device.cell_size = view.cell_size;
-  view_device.box = make_box(view.box);
-  size_t cell_count = view.cells_per_axis * view.cells_per_axis *
-                      view.cells_per_axis * sizeof(cell_t);
-  cudaMalloc(&view_device.cells, cell_count);
-  cudaMemcpy(view_device.cells, view.cells, cell_count, cudaMemcpyHostToDevice);
-  return view_device;
-}
-
-__host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
-                                                       particle_t const &p) {
-  const size_t cell_cnt =
-      view.cells_per_axis * view.cells_per_axis * view.cells_per_axis;
+__host__ __device__ bool cell_view_t::particle_intersects(particle_t const &p) {
+  const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   for (double coeff_x = -1; coeff_x <= 1; coeff_x += 1) {
-    const double x = p.pos.x + coeff_x * view.cell_size.x;
-    if (x < 0 || x > view.box.dimensions.x) {
+    const double x = p.pos.x + coeff_x * cell_size.x;
+    if (x < 0 || x > box.dimensions.x) {
       continue;
     }
-    size_t idx_x = (size_t)(x / view.cell_size.x);
+    size_t idx_x = (size_t)(x / cell_size.x);
     for (double coeff_y = -1; coeff_y <= 1; coeff_y += 1) {
-      const double y = p.pos.y + coeff_y * view.cell_size.y;
-      if (y < 0 || y > view.box.dimensions.y) {
+      const double y = p.pos.y + coeff_y * cell_size.y;
+      if (y < 0 || y > box.dimensions.y) {
         continue;
       }
-      size_t idx_y = (size_t)(y / view.cell_size.y);
+      size_t idx_y = (size_t)(y / cell_size.y);
       for (double coeff_z = -1; coeff_z <= 1; coeff_z += 1) {
-        double const z = p.pos.z + coeff_z * view.cell_size.z;
-        if (z < 0 || z > view.box.dimensions.z) {
+        double const z = p.pos.z + coeff_z * cell_size.z;
+        if (z < 0 || z > box.dimensions.z) {
           continue;
         }
-        size_t idx_z = (size_t)(z / view.cell_size.z);
-        size_t cell_idx = idx_x * view.cells_per_axis * view.cells_per_axis +
-                          idx_y * view.cells_per_axis + idx_z;
+        size_t idx_z = (size_t)(z / cell_size.z);
+        size_t cell_idx = idx_x * cells_per_axis * cells_per_axis +
+                          idx_y * cells_per_axis + idx_z;
         if (cell_idx >= cell_cnt) {
           continue;
         }
-        cell_t const &cell = view.cells[cell_idx];
+        cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
-          if (particle_intersects(
-                  p, view.box.particles[cell.particle_indices[i]])) {
+          if (p.intersects(box.particles[cell.particle_indices[i]])) {
             return true;
           }
         }
@@ -174,40 +125,38 @@ __host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
   return false;
 }
 
-__host__ __device__ bool cell_view_particle_intersects(cell_view_t const &view,
-    double3 const pos, double const radius) {
-      
-  const size_t cell_cnt =
-      view.cells_per_axis * view.cells_per_axis * view.cells_per_axis;
+__host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
+                                                          double const radius) {
+
+  const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   for (double coeff_x = -1; coeff_x <= 1; coeff_x += 1) {
-    const double x = pos.x + coeff_x * view.cell_size.x;
-    if (x < 0 || x > view.box.dimensions.x) {
+    const double x = pos.x + coeff_x * cell_size.x;
+    if (x < 0 || x > box.dimensions.x) {
       continue;
     }
-    size_t idx_x = (size_t)(x / view.cell_size.x);
+    size_t idx_x = (size_t)(x / cell_size.x);
     for (double coeff_y = -1; coeff_y <= 1; coeff_y += 1) {
-      const double y = pos.y + coeff_y * view.cell_size.y;
-      if (y < 0 || y > view.box.dimensions.y) {
+      const double y = pos.y + coeff_y * cell_size.y;
+      if (y < 0 || y > box.dimensions.y) {
         continue;
       }
-      size_t idx_y = (size_t)(y / view.cell_size.y);
+      size_t idx_y = (size_t)(y / cell_size.y);
       for (double coeff_z = -1; coeff_z <= 1; coeff_z += 1) {
-        double const z = pos.z + coeff_z * view.cell_size.z;
-        if (z < 0 || z > view.box.dimensions.z) {
+        double const z = pos.z + coeff_z * cell_size.z;
+        if (z < 0 || z > box.dimensions.z) {
           continue;
         }
-        size_t idx_z = (size_t)(z / view.cell_size.z);
-        size_t cell_idx = idx_x * view.cells_per_axis * view.cells_per_axis +
-                          idx_y * view.cells_per_axis + idx_z;
+        size_t idx_z = (size_t)(z / cell_size.z);
+        size_t cell_idx = idx_x * cells_per_axis * cells_per_axis +
+                          idx_y * cells_per_axis + idx_z;
         if (cell_idx >= cell_cnt) {
           continue;
         }
-        cell_t const &cell = view.cells[cell_idx];
+        cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
-          if (particle_intersects(
-                  view.box.particles[cell.particle_indices[i]], pos, radius)) {
+          if (box.particles[cell.particle_indices[i]].intersects(pos, radius)) {
             return true;
           }
         }
