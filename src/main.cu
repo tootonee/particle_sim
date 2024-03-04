@@ -18,9 +18,9 @@ int main() {
   std::random_device r;
   std::mt19937 re(r());
 
-  std::uniform_real_distribution<double> unif_x(0, box.dimensions.x);
-  std::uniform_real_distribution<double> unif_y(0, box.dimensions.y);
-  std::uniform_real_distribution<double> unif_z(0, box.dimensions.z);
+  std::uniform_real_distribution<double> unif_x(0, 10);
+  std::uniform_real_distribution<double> unif_y(0, 10);
+  std::uniform_real_distribution<double> unif_z(0, 10);
   cell_view_t view({10, 10, 10}, 8);
   std::cout << "Box particles = " << view.box.particles << std::endl;
 

@@ -87,6 +87,11 @@ struct __align__(32) cell_view_t {
   __host__ __device__ bool particle_intersects(particle_t const &p);
   __host__ __device__ bool particle_intersects(double3 const pos,
                                                double const radius);
+  __host__ __device__ bool particle_energy_square_well(
+      particle_t const &p, double const sigma = 2.0F, double const val = 1.0F);
+  __host__ __device__ bool particle_energy_square_well(
+      double3 const pos, double const radius, double const sigma = 2.0F,
+      double const val = 1.0F);
 
   inline __host__ __device__ size_t get_cell_idx(particle_t const &p) {
     uint3 const particle_idx = {
