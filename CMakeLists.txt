@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 
-#[[ set(CMAKE_CXX_STANDARD 17) ]]
-#[[ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) ]]
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES 70)
@@ -35,8 +35,6 @@ add_executable(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include)
-
-#[[ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11) ]]
-
 set_target_properties(${PROJECT_NAME}
     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+#[[ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11) ]]
