@@ -165,3 +165,21 @@ __host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
   }
   return false;
 }
+
+void cell_view_t::add_particle_random_pos(double radius, rng_gen &rng_x,
+                                          rng_gen &rng_y, rng_gen &rng_z,
+                                          std::mt19937 &re) {
+  if (box.capacity <= box.particle_count) {
+    box.realloc(box.capacity * 2);
+  }
+  bool intersects = true;
+  particle_t *p = box.particles + box.particle_count;
+  p->radius = radius;
+  p->idx = box.particle_count;
+  p->init();
+  do {
+    p->random_particle_pos(rng_x, rng_y, rng_z, re);
+    intersects = particle_intersects(*p);
+  } while (intersects);
+  box.particle_count++;
+}

@@ -3,9 +3,6 @@
 #ifndef PARTICLE_H
 #define PARTICLE_H
 
-#include <cuda_runtime.h>
-#include <cuda_runtime_api.h>
-
 #include <cstddef>
 #include <random>
 
@@ -44,7 +41,7 @@ struct __align__(32) particle_t {
 };
 
 __host__ __device__ constexpr inline bool operator==(particle_t const &lhs,
-                                    particle_t const &rhs) {
+                                                     particle_t const &rhs) {
   return lhs.pos.x == rhs.pos.x && lhs.pos.y == rhs.pos.y &&
          lhs.pos.z == rhs.pos.z && lhs.radius == rhs.radius;
 }

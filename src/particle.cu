@@ -1,7 +1,6 @@
 #include "particle.h"
 #include "vec.h"
 
-#include <cuda_runtime.h>
 #include <random>
 
 void particle_t::init(size_t capacity) {
@@ -17,7 +16,8 @@ void particle_t::realloc(size_t capacity) {
   }
   patch_t *new_patches{};
   cudaMallocManaged(&new_patches, capacity);
-  cudaMemcpy(new_patches, patches, sizeof(patch_t) * patch_cap, cudaMemcpyDefault);
+  cudaMemcpy(new_patches, patches, sizeof(patch_t) * patch_cap,
+             cudaMemcpyDefault);
   cudaFree(patches);
   patch_cap = capacity;
   patches = new_patches;

@@ -1,12 +1,9 @@
-#include <cuda_runtime.h>
-#include <cuda_runtime_api.h>
-
 #include "particle_box.h"
 
 void particle_box_t::init(size_t cap) {
   free_particles();
-  cudaMallocManaged(&particles, capacity);
   capacity = cap;
+  cudaMallocManaged(&particles, sizeof(particle_t) * capacity);
 }
 
 void particle_box_t::realloc(size_t cap) {
@@ -14,8 +11,9 @@ void particle_box_t::realloc(size_t cap) {
     return;
   }
   particle_t *new_particles;
-  cudaMallocManaged(&new_particles, cap);
-  cudaMemcpy(new_particles, particles, sizeof(particle_t) * capacity, cudaMemcpyDefault);
+  cudaMallocManaged(&new_particles, sizeof(particle_t) * cap);
+  cudaMemcpy(new_particles, particles, sizeof(particle_t) * particle_count,
+             cudaMemcpyDefault);
   capacity = cap;
   cudaFree(particles);
   particles = new_particles;
@@ -97,9 +95,8 @@ __host__ __device__ void particle_box_t::swap_particles(size_t const fst,
   particles[snd].idx = snd;
 }
 
-void particle_box_t::make_box_uniform_particles_host(double3 const dims,
-                                               double const radius,
-                                               size_t const count_per_axis) {
+void particle_box_t::make_box_uniform_particles_host(
+    double3 const dims, double const radius, size_t const count_per_axis) {
   free_particles();
   dimensions = dims;
   capacity = count_per_axis * count_per_axis * count_per_axis;
@@ -123,7 +120,7 @@ void particle_box_t::make_box_uniform_particles_host(double3 const dims,
         p.init();
 
         particles[x * count_per_axis * count_per_axis + y * count_per_axis +
-                      z] = p;
+                  z] = p;
         particle_count += 1;
       }
     }

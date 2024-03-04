@@ -3,8 +3,6 @@
 #ifndef PARTICLE_BOX_H
 #define PARTICLE_BOX_H
 
-#include <cuda_runtime.h>
-#include <cuda_runtime_api.h>
 #include <random>
 
 #include "particle.h"
@@ -38,8 +36,7 @@ struct __align__(32) particle_box_t {
     cudaFree(particles);
   }
 
-  void make_box_uniform_particles_host(double3 const dims,
-                                       double const radius,
+  void make_box_uniform_particles_host(double3 const dims, double const radius,
                                        size_t const count_per_axis);
 };
 #endif

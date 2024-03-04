@@ -4,7 +4,6 @@
 #define VEC_MATH_H
 
 #include <cmath>
-#include <cuda_runtime_api.h>
 
 static constexpr double ERR = 0.0001F;
 

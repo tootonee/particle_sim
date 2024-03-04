@@ -3,8 +3,6 @@
 #ifndef CELL_VIEW_H
 #define CELL_VIEW_H
 
-#include <cuda_runtime.h>
-#include <cuda_runtime_api.h>
 #include <random>
 
 #include "particle.h"
@@ -26,6 +24,7 @@ struct __align__(32) cell_view_t {
   double3 cell_size{};
 
   cell_view_t(particle_box_t const &b, size_t const cs_per_axis) {
+    cells_per_axis = cs_per_axis;
     size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
     box.dimensions = b.dimensions;
     box.particle_count = b.particle_count;
@@ -54,15 +53,34 @@ struct __align__(32) cell_view_t {
     }
   }
 
+  cell_view_t(double3 const dims, size_t const cs_per_axis) {
+    cells_per_axis = cs_per_axis;
+    size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
+    box.dimensions = dims;
+    box.particle_count = 0;
+    box.capacity = cell_count;
+    box.init(box.capacity);
+
+    cells_per_axis = cs_per_axis;
+    cell_size = {
+        .x = box.dimensions.x / cells_per_axis,
+        .y = box.dimensions.y / cells_per_axis,
+        .z = box.dimensions.z / cells_per_axis,
+    };
+    alloc_cells();
+  }
+
   void alloc_cells();
   void free();
   void free_cells();
   void realloc(size_t cap);
   void add_particle_to_box(particle_t const &p);
+  bool add_particle_to_box(double radius, rng_gen &rng_x, rng_gen &rng_y,
+                           rng_gen &rng_z, std::mt19937 &re);
   double3 try_random_particle_disp(size_t const particle_idx, rng_gen &rng_x,
                                    std::mt19937 &re);
-  bool add_particle(double radius, rng_gen &rng_x, rng_gen &rng_y,
-                    rng_gen &rng_z, std::mt19937 &re);
+  void add_particle_random_pos(double radius, rng_gen &rng_x, rng_gen &rng_y,
+                               rng_gen &rng_z, std::mt19937 &re);
 
   __host__ __device__ bool add_particle(particle_t const &p);
   __host__ __device__ void remove_particle(particle_t const &p);
