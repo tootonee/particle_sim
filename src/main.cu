@@ -17,7 +17,8 @@
 // }
 
 constexpr size_t ITERATIONS = 1'000'000;
-constexpr size_t ITERATIONS_PER_EXPORT = 1'000;
+/* constexpr size_t ITERATIONS = 10'000; */
+constexpr size_t ITERATIONS_PER_EXPORT = 1'00;
 constexpr double TEMPERATURE = 2.0F;
 constexpr double BOLTZMANN_C = 1.380649e-23;
 
@@ -31,7 +32,7 @@ int main() {
   cell_view_t view({10, 10, 10}, 8);
   std::cout << "Box particles = " << view.box.particles << std::endl;
 
-  for (size_t i = 0; i < 512; i++) {
+  for (size_t i = 0; i < 300; i++) {
     std::cout << "I = " << i << std::endl;
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
   }
@@ -43,21 +44,31 @@ int main() {
       char buf[16];
       std::sprintf(buf, "data/%06li.pdb", idx);
       export_particles_to_pdb(view.box, buf);
+      std::cout << "I = " << idx << std::endl;
     }
-    size_t const p_idx = unif_r(re) * view.box.particle_count;
-    double const radius = view.box.particles[p_idx].radius;
-    double3 const old_pos = view.box.particles[p_idx].pos;
+#pragma omp parallel for
+    for (size_t i = 0; i < view.box.particle_count; i++) {
+      size_t const p_idx = unif_r(re) * view.box.particle_count;
+      double const radius = view.box.particles[p_idx].radius;
+      double3 const old_pos = view.box.particles[p_idx].pos;
 
-    double old_energy = view.particle_energy_square_well(old_pos, radius);
+      double old_energy =
+          view.particle_energy_square_well(old_pos, radius, 2.5);
 
-    double3 const new_pos = view.try_random_particle_disp(p_idx, unif_r, re);
-    if (new_pos.x == -1) {
-      continue;
-    }
-    double new_energy = view.particle_energy_square_well(new_pos, radius);
-    double prob = (old_energy - new_energy) / (BOLTZMANN_C * TEMPERATURE);
-    if (unif_r(re) >= prob) {
-      continue;
+      double3 const new_pos = view.try_random_particle_disp(p_idx, unif_r, re);
+      if (new_pos.x == -1) {
+        continue;
+      }
+      double new_energy =
+          view.particle_energy_square_well(new_pos, radius, 2.5);
+
+      double prob = (old_energy - new_energy) / (BOLTZMANN_C * TEMPERATURE);
+      if (unif_r(re) <= prob) {
+        continue;
+      }
+      view.remove_particle(view.box.particles[p_idx]);
+      view.box.particles[p_idx].pos = new_pos;
+      view.add_particle(view.box.particles[p_idx]);
     }
   }
 

@@ -78,12 +78,13 @@ struct __align__(32) cell_view_t {
   bool add_particle_to_box(double radius, rng_gen &rng_x, rng_gen &rng_y,
                            rng_gen &rng_z, std::mt19937 &re);
   double3 try_random_particle_disp(size_t const particle_idx, rng_gen &rng_x,
-                                   std::mt19937 &re);
+                                   std::mt19937 &re, double const scale = 2.0F);
   void add_particle_random_pos(double radius, rng_gen &rng_x, rng_gen &rng_y,
                                rng_gen &rng_z, std::mt19937 &re);
 
   __host__ __device__ bool add_particle(particle_t const &p);
   __host__ __device__ void remove_particle(particle_t const &p);
+  __host__ __device__ void remove_particle_from_box(particle_t const &p);
   __host__ __device__ bool particle_intersects(particle_t const &p);
   __host__ __device__ bool particle_intersects(double3 const pos,
                                                double const radius);

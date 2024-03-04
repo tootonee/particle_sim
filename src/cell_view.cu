@@ -44,7 +44,8 @@ void cell_view_t::add_particle_to_box(particle_t const &p) {
 }
 
 double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
-                                              rng_gen &rng, std::mt19937 &re) {
+                                              rng_gen &rng, std::mt19937 &re,
+                                              double const scale) {
   if (particle_idx >= box.particle_count) {
     return {-1, -1, -1};
   }
@@ -52,15 +53,25 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
   particle_t const &p_orig = box.particles[particle_idx];
   double radius = p_orig.radius;
   double3 disp = {
-      cell_size.x * (rng(re) - 0.5),
-      cell_size.y * (rng(re) - 0.5),
-      cell_size.z * (rng(re) - 0.5),
+      scale * cell_size.x * (rng(re) - 0.5),
+      scale * cell_size.y * (rng(re) - 0.5),
+      scale * cell_size.z * (rng(re) - 0.5),
   };
   disp = {
-      p_orig.pos.x + disp.x,
-      p_orig.pos.y + disp.y,
-      p_orig.pos.z + disp.z,
+      std::abs(p_orig.pos.x + disp.x),
+      std::abs(p_orig.pos.y + disp.y),
+      std::abs(p_orig.pos.z + disp.z),
   };
+
+  if (disp.x >= box.dimensions.x) {
+    disp.x -= p_orig.pos.x;
+  }
+  if (disp.y >= box.dimensions.y) {
+    disp.y -= p_orig.pos.y;
+  }
+  if (disp.z >= box.dimensions.z) {
+    disp.z -= p_orig.pos.z;
+  }
 
   if (particle_intersects(disp, radius)) {
     return {-1, -1, -1};
@@ -69,6 +80,23 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
 }
 
 __host__ __device__ void cell_view_t::remove_particle(particle_t const &p) {
+  size_t cell_idx = get_cell_idx(p);
+  cell_t &cell = cells[cell_idx];
+  if (cell.num_particles == 0) {
+    return;
+  }
+
+  for (size_t i = 0; i < cell.num_particles; i++) {
+    if (cell.particle_indices[i] == p.idx) {
+      cell.particle_indices[i] = cell.particle_indices[cell.num_particles - 1];
+      cell.num_particles--;
+      return;
+    }
+  }
+}
+
+__host__ __device__ void
+cell_view_t::remove_particle_from_box(particle_t const &p) {
   size_t cell_idx = get_cell_idx(p);
   cell_t &cell = cells[cell_idx];
   if (cell.num_particles == 0) {
