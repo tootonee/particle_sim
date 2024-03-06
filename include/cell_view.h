@@ -42,11 +42,9 @@ struct __align__(32) cell_view_t {
     alloc_cells();
 
     for (size_t idx = 0; idx < box.particle_count; idx++) {
-      box.particles[idx].init(b.particles[idx].patch_cap);
       cudaMemcpy(box.particles[idx].patches, b.particles[idx].patches,
                  sizeof(patch_t) * b.particles[idx].patch_count,
                  cudaMemcpyDefault);
-      box.particles[idx].patch_cap = b.particles[idx].patch_cap;
       box.particles[idx].patch_count = b.particles[idx].patch_count;
       box.particles[idx].idx = idx;
       add_particle(box.particles[idx]);

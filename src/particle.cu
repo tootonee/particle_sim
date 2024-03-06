@@ -3,26 +3,6 @@
 
 #include <random>
 
-void particle_t::init(size_t capacity) {
-  cudaFree(patches);
-  patch_count = 0;
-  patch_cap = capacity;
-  cudaMallocManaged(&patches, capacity);
-}
-
-void particle_t::realloc(size_t capacity) {
-  if (capacity <= patch_cap) {
-    return;
-  }
-  patch_t *new_patches{};
-  cudaMallocManaged(&new_patches, capacity);
-  cudaMemcpy(new_patches, patches, sizeof(patch_t) * patch_cap,
-             cudaMemcpyDefault);
-  cudaFree(patches);
-  patch_cap = capacity;
-  patches = new_patches;
-}
-
 void particle_t::random_particle_pos(double3 dimensions) {
   std::random_device r;
   std::mt19937 re(r());

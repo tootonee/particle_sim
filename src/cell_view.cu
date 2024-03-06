@@ -235,7 +235,6 @@ void cell_view_t::add_particle_random_pos(double radius, rng_gen &rng_x,
   particle_t *p = box.particles + box.particle_count;
   p->radius = radius;
   p->idx = box.particle_count;
-  p->init();
   do {
     p->random_particle_pos(rng_x, rng_y, rng_z, re);
     intersects = particle_intersects(*p);

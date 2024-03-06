@@ -30,7 +30,6 @@ struct __align__(32) particle_box_t {
   inline void free_particles() const {
     for (size_t idx = 0; idx < particle_count; idx++) {
       cudaFree(particles[idx].patches);
-      particles[idx].patch_cap = 0;
       particles[idx].patch_count = 0;
     }
     cudaFree(particles);

@@ -28,7 +28,6 @@ void particle_box_t::add_particle(double radius, rng_gen &rng_x, rng_gen &rng_y,
   particle_t *p = particles + particle_count;
   p->radius = radius;
   p->idx = particle_count;
-  p->init();
   do {
     intersects = false;
     p->random_particle_pos(rng_x, rng_y, rng_z, re);
@@ -51,7 +50,6 @@ void particle_box_t::add_particle(double radius) {
   particle_t *p = particles + particle_count;
   p->radius = radius;
   p->idx = particle_count;
-  p->init();
   do {
     intersects = false;
     p->random_particle_pos(dimensions);
@@ -117,7 +115,6 @@ void particle_box_t::make_box_uniform_particles_host(
         p.pos.y = y * axis_steps.y + radius;
         p.pos.z = z * axis_steps.z + radius;
         p.idx = particle_count;
-        p.init();
 
         particles[x * count_per_axis * count_per_axis + y * count_per_axis +
                   z] = p;

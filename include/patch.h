@@ -6,7 +6,6 @@
 struct __align__(32) patch_t {
   double radius{};
   double4 pos{};
-  size_t particle_idx{};
 };
 
 #endif

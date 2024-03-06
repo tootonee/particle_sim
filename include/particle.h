@@ -16,16 +16,13 @@ struct __align__(32) particle_t {
   double radius{};
   double3 pos{0, 0, 0};
   double4 orient{0, 0, 0, 0};
-  patch_t *patches{};
+  patch_t patches[DEFAULT_CAPACITY];
   size_t patch_count{DEFAULT_CAPACITY};
-  size_t patch_cap{DEFAULT_CAPACITY};
   size_t idx{};
 
-  void realloc(size_t capacity);
   void random_particle_pos(double3 dimensions);
   void random_particle_pos(rng_gen & rng_x, rng_gen & rng_y, rng_gen & rng_z,
                            std::mt19937 & re);
-  void init(size_t capacity = DEFAULT_CAPACITY);
 
   __host__ __device__ inline constexpr bool intersects(particle_t const &rhs)
       const {
