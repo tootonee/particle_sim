@@ -16,11 +16,12 @@
 //   // cudaFree(box.particles[id].patches);
 // }
 
-constexpr size_t ITERATIONS = 1'000'000;
-/* constexpr size_t ITERATIONS = 10'000; */
-constexpr size_t ITERATIONS_PER_EXPORT = 1'00;
-constexpr double TEMPERATURE = 2.0F;
-constexpr double BOLTZMANN_C = 1.380649e-23;
+/* constexpr size_t ITERATIONS = 100'000; */
+constexpr size_t ITERATIONS = 10'000;
+constexpr size_t ITERATIONS_PER_EXPORT = 100;
+constexpr double TEMPERATURE = 275.15L;
+/* constexpr double BOLTZMANN_C = 1.380649e-23L; */
+constexpr double BOLTZMANN_C = 1.380649e-1L;
 
 int main() {
   std::random_device r;
@@ -32,12 +33,12 @@ int main() {
   cell_view_t view({10, 10, 10}, 8);
   std::cout << "Box particles = " << view.box.particles << std::endl;
 
-  for (size_t i = 0; i < 300; i++) {
+  for (size_t i = 0; i < 512; i++) {
     std::cout << "I = " << i << std::endl;
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
   }
 
-  std::uniform_real_distribution<double> unif_r(0, 0.999F);
+  std::uniform_real_distribution<double> unif_r(0, 0.999L);
   for (size_t iters = 0; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_EXPORT == 0) {
       const size_t idx = iters / ITERATIONS_PER_EXPORT;
@@ -51,6 +52,9 @@ int main() {
       size_t const p_idx = unif_r(re) * view.box.particle_count;
       double const radius = view.box.particles[p_idx].radius;
       double3 const old_pos = view.box.particles[p_idx].pos;
+      // std::cout << "Particle pos = <" << old_pos.x << ", " << old_pos.y << ",
+      // "
+      //           << old_pos.z << ">" << std::endl;
 
       double old_energy =
           view.particle_energy_square_well(old_pos, radius, 2.5);
@@ -62,8 +66,11 @@ int main() {
       double new_energy =
           view.particle_energy_square_well(new_pos, radius, 2.5);
 
-      double prob = (old_energy - new_energy) / (BOLTZMANN_C * TEMPERATURE);
-      if (unif_r(re) <= prob) {
+      double prob = (new_energy - old_energy) / (BOLTZMANN_C * TEMPERATURE);
+      // std::cout << "Old energy = " << old_energy
+      //           << ", New energy = " << new_energy << ", Prob = " << prob
+      //           << std::endl;
+      if (unif_r(re) >= prob) {
         continue;
       }
       view.remove_particle(view.box.particles[p_idx]);

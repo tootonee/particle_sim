@@ -25,7 +25,8 @@ __host__ __device__ bool cell_view_t::add_particle(particle_t const &p) {
   if (cell.num_particles >= MAX_PARTICLES_PER_CELL) {
     return false;
   }
-  cell.particle_indices[cell.num_particles++] = p.idx;
+  cell.particle_indices[cell.num_particles] = p.idx;
+  cell.num_particles += 1;
   return true;
 }
 
@@ -231,18 +232,16 @@ void cell_view_t::add_particle_random_pos(double radius, rng_gen &rng_x,
   if (box.capacity <= box.particle_count) {
     box.realloc(box.capacity * 2);
   }
-  bool intersects = true;
   particle_t *p = box.particles + box.particle_count;
   p->radius = radius;
   p->idx = box.particle_count;
   do {
     p->random_particle_pos(rng_x, rng_y, rng_z, re);
-    intersects = particle_intersects(*p);
-  } while (intersects);
+  } while (!add_particle(*p));
   box.particle_count++;
 }
 
-__host__ __device__ bool
+__host__ __device__ double
 cell_view_t::particle_energy_square_well(particle_t const &p,
                                          double const sigma, double const val) {
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
@@ -250,9 +249,9 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   double3 coeff_val = {
-      .x = floor(p.radius / cell_size.x) + 1.0F,
-      .y = floor(p.radius / cell_size.y) + 1.0F,
-      .z = floor(p.radius / cell_size.z) + 1.0F,
+      .x = ceil(sigma / cell_size.x) + 1.0F,
+      .y = ceil(sigma / cell_size.y) + 1.0F,
+      .z = ceil(sigma / cell_size.z) + 1.0F,
   };
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = p.pos.x + coeff_x * cell_size.x;
@@ -300,7 +299,7 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
   return result;
 }
 
-__host__ __device__ bool
+__host__ __device__ double
 cell_view_t::particle_energy_square_well(double3 const pos, double const radius,
                                          double const sigma, double const val) {
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
@@ -308,9 +307,9 @@ cell_view_t::particle_energy_square_well(double3 const pos, double const radius,
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   double3 coeff_val = {
-      .x = floor(radius / cell_size.x) + 1.0F,
-      .y = floor(radius / cell_size.y) + 1.0F,
-      .z = floor(radius / cell_size.z) + 1.0F,
+      .x = ceil(sigma / cell_size.x) + 1.0F,
+      .y = ceil(sigma / cell_size.y) + 1.0F,
+      .z = ceil(sigma / cell_size.z) + 1.0F,
   };
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = pos.x + coeff_x * cell_size.x;
