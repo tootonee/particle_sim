@@ -27,7 +27,7 @@ struct __align__(32) particle_t {
   __host__ __device__ inline constexpr bool intersects(particle_t const &rhs)
       const {
     double const diameter = radius + rhs.radius;
-    return distance(pos, rhs.pos) < diameter;
+    return distance(pos, rhs.pos) < diameter && !(idx != rhs.idx);
   }
 
   __host__ __device__ inline constexpr bool intersects(

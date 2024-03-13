@@ -52,7 +52,7 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
   }
 
   particle_t const &p_orig = box.particles[particle_idx];
-  double radius = p_orig.radius;
+  const double3 old_pos = p_orig.pos;
   double3 disp = {
       scale * cell_size.x * (rng(re) - 0.5),
       scale * cell_size.y * (rng(re) - 0.5),
@@ -73,10 +73,13 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
   if (disp.z >= box.dimensions.z) {
     disp.z -= p_orig.pos.z;
   }
+  box.particles[particle_idx].pos = disp;
 
-  if (particle_intersects(disp, radius)) {
+  if (particle_intersects(box.particles[particle_idx])) {
+    box.particles[particle_idx].pos = old_pos;
     return {-1, -1, -1};
   }
+  box.particles[particle_idx].pos = old_pos;
   return disp;
 }
 
@@ -160,6 +163,9 @@ __host__ __device__ bool cell_view_t::particle_intersects(particle_t const &p) {
         }
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
+          if (cell.particle_indices[i] == p.idx) {
+            continue;
+          }
           if (box.particles[cell.particle_indices[i]].intersects({x, y, z},
                                                                  p.radius)) {
             return true;
@@ -173,7 +179,6 @@ __host__ __device__ bool cell_view_t::particle_intersects(particle_t const &p) {
 
 __host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
                                                           double const radius) {
-
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis

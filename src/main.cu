@@ -19,11 +19,12 @@
 //   // cudaFree(box.particles[id].patches);
 // }
 
+constexpr size_t PARTICLE_COUNT = 512;
+constexpr size_t ITERATIONS = 10'000;
 /* constexpr size_t ITERATIONS = 100'000; */
-constexpr size_t ITERATIONS = 100'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 10;
 /* constexpr double TEMPERATURE = 275.15L; */
-constexpr double TEMPERATURE = 25.15L;
+constexpr double TEMPERATURE = 2.15L;
 /* constexpr double BOLTZMANN_C = 1.380649e-23L; */
 constexpr double BOLTZMANN_C = 1.380649e-1L;
 
@@ -34,12 +35,12 @@ int main() {
   std::uniform_real_distribution<double> unif_x(0, 10);
   std::uniform_real_distribution<double> unif_y(0, 10);
   std::uniform_real_distribution<double> unif_z(0, 10);
-  cell_view_t view({10, 10, 10}, 8);
+  cell_view_t view({10, 10, 10}, 16);
   std::cout << "Box particles = " << view.box.particles << std::endl;
 
-  for (size_t i = 0; i < 512; i++) {
+  for (size_t i = 0; i < PARTICLE_COUNT; i++) {
     std::cout << "I = " << i << std::endl;
-    view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
+    view.add_particle_random_pos(0.25, unif_x, unif_y, unif_z, re);
   }
 
   std::vector<double> energies{};
@@ -59,21 +60,24 @@ int main() {
       size_t const p_idx = unif_r(re) * view.box.particle_count;
       double const radius = view.box.particles[p_idx].radius;
       double3 const old_pos = view.box.particles[p_idx].pos;
-      // std::cout << "Particle pos = <" << old_pos.x << ", " << old_pos.y << ",
-      // "
-      //           << old_pos.z << ">" << std::endl;
+      // std::cout << "Particle pos = <" << old_pos.x << ", " << old_pos.y <<
+      // ","
+      //           << old_pos.z << ">, idx = " << p_idx << std::endl;
 
       double old_energy =
           view.particle_energy_square_well(old_pos, radius, 2.5);
 
       double3 const new_pos = view.try_random_particle_disp(p_idx, unif_r, re);
+      // std::cout << "New Particle pos = <" << new_pos.x << ", " << new_pos.y
+      //           << "," << new_pos.z << ">, idx = " << p_idx << std::endl;
       if (new_pos.x == -1) {
         continue;
       }
       double new_energy =
           view.particle_energy_square_well(new_pos, radius, 2.5);
 
-      double prob = (new_energy - old_energy) / (BOLTZMANN_C * TEMPERATURE);
+      double prob =
+          exp((new_energy - old_energy) / (BOLTZMANN_C * TEMPERATURE));
       // std::cout << "Old energy = " << old_energy
       //           << ", New energy = " << new_energy << ", Prob = " << prob
       //           << std::endl;
@@ -98,7 +102,7 @@ int main() {
     const size_t p_idx = unif_r(re) * view.box.particle_count;
     const double num =
         view.particles_in_range(view.box.particles[p_idx].pos, radius);
-    const double res = num / (M_PI * 1.072330292 * radius * radius * 0.1L);
+    const double res = 8 * num / (M_PI * 1.072330292 * radius * radius * 0.1L);
     distribution.push_back(res);
     radius += 0.1;
   }
