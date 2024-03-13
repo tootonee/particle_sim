@@ -4,10 +4,13 @@
 #include "pdb_export.h"
 
 #include <algorithm>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <ostream>
 #include <random>
 #include <sstream>
+#include <vector>
 
 // __global__ void print_particle(particle_box_t box) {
 //   int id = threadIdx.x;
@@ -17,9 +20,10 @@
 // }
 
 /* constexpr size_t ITERATIONS = 100'000; */
-constexpr size_t ITERATIONS = 10'000;
-constexpr size_t ITERATIONS_PER_EXPORT = 100;
-constexpr double TEMPERATURE = 275.15L;
+constexpr size_t ITERATIONS = 100'000;
+constexpr size_t ITERATIONS_PER_EXPORT = 10;
+/* constexpr double TEMPERATURE = 275.15L; */
+constexpr double TEMPERATURE = 25.15L;
 /* constexpr double BOLTZMANN_C = 1.380649e-23L; */
 constexpr double BOLTZMANN_C = 1.380649e-1L;
 
@@ -38,6 +42,8 @@ int main() {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
   }
 
+  std::vector<double> energies{};
+
   std::uniform_real_distribution<double> unif_r(0, 0.999L);
   for (size_t iters = 0; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_EXPORT == 0) {
@@ -45,6 +51,7 @@ int main() {
       char buf[16];
       std::sprintf(buf, "data/%06li.pdb", idx);
       export_particles_to_pdb(view.box, buf);
+      energies.push_back(view.total_energy());
       std::cout << "I = " << idx << std::endl;
     }
 #pragma omp parallel for
@@ -79,7 +86,36 @@ int main() {
     }
   }
 
+  std::vector<double> distribution{};
+  double3 pos = {
+      view.box.dimensions.x / 2,
+      view.box.dimensions.y / 2,
+      view.box.dimensions.z / 2,
+  };
+  double radius = 0.1L;
+
+  while (radius <= 10) {
+    const size_t p_idx = unif_r(re) * view.box.particle_count;
+    const double num =
+        view.particles_in_range(view.box.particles[p_idx].pos, radius);
+    const double res = num / (M_PI * 1.072330292 * radius * radius * 0.1L);
+    distribution.push_back(res);
+    radius += 0.1;
+  }
+
   view.free();
+
+  std::ofstream file("output.txt");
+  file << std::fixed << std::setprecision(3);
+  for (const double energy : energies) {
+    file << energy << std::endl;
+  }
+
+  std::ofstream file_distr("distr_output.txt");
+  file_distr << std::fixed << std::setprecision(3);
+  for (const double num_p : distribution) {
+    file_distr << num_p << std::endl;
+  }
 
   return 0;
 }

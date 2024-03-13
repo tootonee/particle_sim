@@ -160,7 +160,8 @@ __host__ __device__ bool cell_view_t::particle_intersects(particle_t const &p) {
         }
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
-          if (p.intersects(box.particles[cell.particle_indices[i]])) {
+          if (box.particles[cell.particle_indices[i]].intersects({x, y, z},
+                                                                 p.radius)) {
             return true;
           }
         }
@@ -216,7 +217,8 @@ __host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
         }
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
-          if (box.particles[cell.particle_indices[i]].intersects(pos, radius)) {
+          if (box.particles[cell.particle_indices[i]].intersects({x, y, z},
+                                                                 radius)) {
             return true;
           }
         }
@@ -258,7 +260,7 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
     if (x < 0) {
       x = box.dimensions.x - cell_size.x;
     }
-    if (x > box.dimensions.x) {
+    if (x >= box.dimensions.x) {
       x = 0;
     }
     size_t idx_x = (size_t)(x / cell_size.x);
@@ -267,7 +269,7 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
       if (y < 0) {
         y = box.dimensions.y - cell_size.y;
       }
-      if (y > box.dimensions.y) {
+      if (y >= box.dimensions.y) {
         y = 0;
       }
       size_t idx_y = (size_t)(y / cell_size.y);
@@ -277,7 +279,7 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
         if (z < 0) {
           z = box.dimensions.z - cell_size.z;
         }
-        if (z > box.dimensions.z) {
+        if (z >= box.dimensions.z) {
           z = 0;
         }
         size_t idx_z = (size_t)(z / cell_size.z);
@@ -352,6 +354,25 @@ cell_view_t::particle_energy_square_well(double3 const pos, double const radius,
           }
         }
       }
+    }
+  }
+  return result;
+}
+
+__host__ __device__ double cell_view_t::total_energy() {
+  double total = 0.0F;
+  for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
+    total += particle_energy_square_well(box.particles[p_idx]);
+  }
+  return total / 2.0F;
+}
+
+__host__ __device__ double cell_view_t::particles_in_range(double3 const pos,
+                                                           double radius) {
+  double result = 0.0L;
+  for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
+    if (distance(pos, box.particles[p_idx].pos) <= radius) {
+      result += 1;
     }
   }
   return result;
