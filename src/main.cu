@@ -24,7 +24,7 @@ constexpr size_t PARTICLE_COUNT = 500;
 /* constexpr size_t ITERATIONS = 10'000; */
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 100;
-constexpr double TEMPERATURE = 2;
+constexpr double TEMPERATURE = 1.5;
 /* constexpr double TEMPERATURE = 2.15L; */
 /* constexpr double BOLTZMANN_C = 1.380649e-23L; */
 /* constexpr double BOLTZMANN_C = 1.380649e-1L; */
@@ -45,7 +45,6 @@ std::map<double, double> do_distr(cell_view_t const &view,
     for (size_t p_idx = 0; p_idx < view.box.particle_count; p_idx++) {
       num += view.particles_in_range(p_idx, radius, radius + dr);
     }
-    std::cout << "Radius = " << radius << ", num = " << num << std::endl;
     v_old = v_new;
     radius += dr;
     v_new = radius * radius * radius;
@@ -92,8 +91,7 @@ int main() {
       // ","
       //           << old_pos.z << ">, idx = " << p_idx << std::endl;
 
-      // double const old_energy = view.particle_energy_square_well(part, 0.2,
-      // 1);
+      double const old_energy = view.particle_energy_square_well(part, 0.2, 1);
 
       // double const old_energy =
       // view.particle_energy_square_well_device(part, 1.5);
@@ -105,19 +103,19 @@ int main() {
       if (new_pos.x == -1) {
         continue;
       }
-      // part.pos = new_pos;
-      // double new_energy = view.particle_energy_square_well(part, 0.2, 1);
-      // // double const new_energy =
-      // //     view.particle_energy_square_well_device(part, 1.5);
-      // part.pos = old_pos;
+      part.pos = new_pos;
+      double new_energy = view.particle_energy_square_well(part, 0.2, 1);
+      // double const new_energy =
+      //     view.particle_energy_square_well_device(part, 1.5);
+      part.pos = old_pos;
 
-      // double prob = exp((old_energy - new_energy) / (TEMPERATURE));
-      // // std::cout << "Old energy = " << old_energy
-      // //           << ", New energy = " << new_energy << ", Prob = " << prob
-      // //           << std::endl;
-      // if (unif_r(re) >= prob) {
-      //   continue;
-      // }
+      double prob = exp((old_energy - new_energy) / (TEMPERATURE));
+      // std::cout << "Old energy = " << old_energy
+      //           << ", New energy = " << new_energy << ", Prob = " << prob
+      //           << std::endl;
+      if (unif_r(re) >= prob) {
+        continue;
+      }
       view.remove_particle(view.box.particles[p_idx]);
       part.pos = new_pos;
       view.add_particle(view.box.particles[p_idx]);
@@ -133,7 +131,10 @@ int main() {
   }
   file << "]" << std::endl;
 
-  std::map<double, double> distr = do_distr(view);
+  double const rho =
+      view.box.particle_count /
+      (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
+  std::map<double, double> distr = do_distr(view, rho, 1, 0.04);
   std::ofstream other_file("output.dat");
   other_file << std::fixed << std::setprecision(6);
   for (const auto &[r, val] : distr) {
