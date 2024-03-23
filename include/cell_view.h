@@ -87,12 +87,14 @@ struct __align__(32) cell_view_t {
   __host__ __device__ bool particle_intersects(double3 const pos,
                                                double const radius);
   __host__ __device__ double particle_energy_square_well(
-      particle_t const &p, double const sigma = 2.0F, double const val = 1.0F);
+      particle_t const &p, double const sigma = 2.0f, double const val = 1.0f);
   __host__ __device__ double particle_energy_square_well(
-      double3 const pos, double const radius, double const sigma = 2.0F,
-      double const val = 1.0F);
-  __host__ __device__ double particles_in_range(double3 const pos,
-                                                double radius);
+      double3 const pos, double const radius, double const sigma = 2.0f,
+      double const val = 1.0f);
+  double particle_energy_square_well_device(
+      particle_t const &p, double const sigma = 2.0f, double const val = 1.0f);
+  __host__ __device__ double particles_in_range(
+      const size_t idx, const double r1, const double r2) const;
   __host__ __device__ double total_energy();
 
   inline __host__ __device__ size_t get_cell_idx(particle_t const &p) {
@@ -115,5 +117,10 @@ struct __align__(32) cell_view_t {
            particle_idx.y * cells_per_axis + particle_idx.z;
   }
 };
+__global__ void energy_square_well(cell_view_t const view, particle_t const &p,
+                                   double *output, int3 strides,
+                                   double3 coeff_vals,
+                                   double const sigma = 2.0F,
+                                   double const val = 1.0F);
 
 #endif

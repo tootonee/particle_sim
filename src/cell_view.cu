@@ -53,11 +53,13 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
 
   particle_t const &p_orig = box.particles[particle_idx];
   const double3 old_pos = p_orig.pos;
+
   double3 disp = {
-      scale * cell_size.x * (rng(re) - 0.5),
-      scale * cell_size.y * (rng(re) - 0.5),
-      scale * cell_size.z * (rng(re) - 0.5),
+      scale * (rng(re) - 0.5),
+      scale * (rng(re) - 0.5),
+      scale * (rng(re) - 0.5),
   };
+
   disp = {
       std::abs(p_orig.pos.x + disp.x),
       std::abs(p_orig.pos.y + disp.y),
@@ -67,18 +69,22 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
   if (disp.x >= box.dimensions.x) {
     disp.x -= p_orig.pos.x;
   }
+
   if (disp.y >= box.dimensions.y) {
     disp.y -= p_orig.pos.y;
   }
+
   if (disp.z >= box.dimensions.z) {
     disp.z -= p_orig.pos.z;
   }
+
   box.particles[particle_idx].pos = disp;
 
   if (particle_intersects(box.particles[particle_idx])) {
     box.particles[particle_idx].pos = old_pos;
     return {-1, -1, -1};
   }
+
   box.particles[particle_idx].pos = old_pos;
   return disp;
 }
@@ -124,50 +130,42 @@ __host__ __device__ bool cell_view_t::particle_intersects(particle_t const &p) {
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   double3 coeff_val = {
-      .x = floor(p.radius / cell_size.x) + 1.0F,
-      .y = floor(p.radius / cell_size.y) + 1.0F,
-      .z = floor(p.radius / cell_size.z) + 1.0F,
+      .x = 2 * ceil(p.radius / cell_size.x),
+      .y = 2 * ceil(p.radius / cell_size.y),
+      .z = 2 * ceil(p.radius / cell_size.z),
   };
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = p.pos.x + coeff_x * cell_size.x;
     if (x < 0) {
-      x = box.dimensions.x - cell_size.x;
+      x += box.dimensions.x;
     }
     if (x > box.dimensions.x) {
-      x = 0;
+      x -= box.dimensions.x;
     }
-    size_t idx_x = (size_t)(x / cell_size.x);
     for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
       double y = p.pos.y + coeff_y * cell_size.y;
       if (y < 0) {
-        y = box.dimensions.y - cell_size.y;
+        y += box.dimensions.y;
       }
       if (y > box.dimensions.y) {
-        y = 0;
+        y -= box.dimensions.y;
       }
-      size_t idx_y = (size_t)(y / cell_size.y);
       for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
            coeff_z += 1) {
         double z = p.pos.z + coeff_z * cell_size.z;
         if (z < 0) {
-          z = box.dimensions.z - cell_size.z;
+          z += box.dimensions.z;
         }
         if (z > box.dimensions.z) {
-          z = 0;
+          z -= box.dimensions.z;
         }
-        size_t idx_z = (size_t)(z / cell_size.z);
-        size_t cell_idx = idx_x * cells_per_axis * cells_per_axis +
-                          idx_y * cells_per_axis + idx_z;
+        size_t cell_idx = get_cell_idx((double3){x, y, z});
         if (cell_idx >= cell_cnt) {
           continue;
         }
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
-          if (cell.particle_indices[i] == p.idx) {
-            continue;
-          }
-          if (box.particles[cell.particle_indices[i]].intersects({x, y, z},
-                                                                 p.radius)) {
+          if (box.particles[cell.particle_indices[i]].intersects(p)) {
             return true;
           }
         }
@@ -183,9 +181,9 @@ __host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   double3 coeff_val = {
-      .x = floor(radius / cell_size.x) + 1.0F,
-      .y = floor(radius / cell_size.y) + 1.0F,
-      .z = floor(radius / cell_size.z) + 1.0F,
+      .x = 2 * ceil(radius / cell_size.x),
+      .y = 2 * ceil(radius / cell_size.y),
+      .z = 2 * ceil(radius / cell_size.z),
   };
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = pos.x + coeff_x * cell_size.x;
@@ -195,7 +193,7 @@ __host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
     if (x > box.dimensions.x) {
       x = 0;
     }
-    size_t idx_x = (size_t)(x / cell_size.x);
+    int idx_x = (int)(x / cell_size.x);
     for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
       double y = pos.y + coeff_y * cell_size.y;
       if (y < 0) {
@@ -204,7 +202,7 @@ __host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
       if (y > box.dimensions.y) {
         y = 0;
       }
-      size_t idx_y = (size_t)(y / cell_size.y);
+      int idx_y = (int)(y / cell_size.y);
       for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
            coeff_z += 1) {
         double z = pos.z + coeff_z * cell_size.z;
@@ -214,7 +212,7 @@ __host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
         if (z > box.dimensions.z) {
           z = 0;
         }
-        size_t idx_z = (size_t)(z / cell_size.z);
+        int idx_z = (int)(z / cell_size.z);
         size_t cell_idx = idx_x * cells_per_axis * cells_per_axis +
                           idx_y * cells_per_axis + idx_z;
         if (cell_idx >= cell_cnt) {
@@ -222,8 +220,7 @@ __host__ __device__ bool cell_view_t::particle_intersects(double3 const pos,
         }
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
-          if (box.particles[cell.particle_indices[i]].intersects({x, y, z},
-                                                                 radius)) {
+          if (box.particles[cell.particle_indices[i]].intersects(pos, radius)) {
             return true;
           }
         }
@@ -239,12 +236,13 @@ void cell_view_t::add_particle_random_pos(double radius, rng_gen &rng_x,
   if (box.capacity <= box.particle_count) {
     box.realloc(box.capacity * 2);
   }
-  particle_t *p = box.particles + box.particle_count;
-  p->radius = radius;
-  p->idx = box.particle_count;
+  particle_t p{};
+  p.radius = radius;
+  p.idx = box.particle_count;
   do {
-    p->random_particle_pos(rng_x, rng_y, rng_z, re);
-  } while (!add_particle(*p));
+    p.random_particle_pos(rng_x, rng_y, rng_z, re);
+  } while (particle_intersects(p) || !add_particle(p));
+  box.particles[box.particle_count] = p;
   box.particle_count++;
 }
 
@@ -255,10 +253,11 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
   double result = 0.0F;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
+  double dist = 2 * p.radius + sigma;
   double3 coeff_val = {
-      .x = ceil(sigma / cell_size.x) + 1.0F,
-      .y = ceil(sigma / cell_size.y) + 1.0F,
-      .z = ceil(sigma / cell_size.z) + 1.0F,
+      .x = ceil(dist / cell_size.x),
+      .y = ceil(dist / cell_size.y),
+      .z = ceil(dist / cell_size.z),
   };
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = p.pos.x + coeff_x * cell_size.x;
@@ -268,7 +267,7 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
     if (x >= box.dimensions.x) {
       x = 0;
     }
-    size_t idx_x = (size_t)(x / cell_size.x);
+    int idx_x = (int)(x / cell_size.x);
     for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
       double y = p.pos.y + coeff_y * cell_size.y;
       if (y < 0) {
@@ -277,7 +276,7 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
       if (y >= box.dimensions.y) {
         y = 0;
       }
-      size_t idx_y = (size_t)(y / cell_size.y);
+      int idx_y = (int)(y / cell_size.y);
       for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
            coeff_z += 1) {
         double z = p.pos.z + coeff_z * cell_size.z;
@@ -287,7 +286,7 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
         if (z >= box.dimensions.z) {
           z = 0;
         }
-        size_t idx_z = (size_t)(z / cell_size.z);
+        int idx_z = (int)(z / cell_size.z);
         size_t cell_idx = idx_x * cells_per_axis * cells_per_axis +
                           idx_y * cells_per_axis + idx_z;
         if (cell_idx >= cell_cnt) {
@@ -326,7 +325,7 @@ cell_view_t::particle_energy_square_well(double3 const pos, double const radius,
     if (x > box.dimensions.x) {
       x = 0;
     }
-    size_t idx_x = (size_t)(x / cell_size.x);
+    int idx_x = (int)(x / cell_size.x);
     for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
       double y = pos.y + coeff_y * cell_size.y;
       if (y < 0) {
@@ -335,7 +334,7 @@ cell_view_t::particle_energy_square_well(double3 const pos, double const radius,
       if (y > box.dimensions.y) {
         y = 0;
       }
-      size_t idx_y = (size_t)(y / cell_size.y);
+      int idx_y = (int)(y / cell_size.y);
       for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
            coeff_z += 1) {
         double z = pos.z + coeff_z * cell_size.z;
@@ -345,7 +344,7 @@ cell_view_t::particle_energy_square_well(double3 const pos, double const radius,
         if (z > box.dimensions.z) {
           z = 0;
         }
-        size_t idx_z = (size_t)(z / cell_size.z);
+        int idx_z = (int)(z / cell_size.z);
         size_t cell_idx = idx_x * cells_per_axis * cells_per_axis +
                           idx_y * cells_per_axis + idx_z;
         if (cell_idx >= cell_cnt) {
@@ -372,13 +371,105 @@ __host__ __device__ double cell_view_t::total_energy() {
   return total / 2.0F;
 }
 
-__host__ __device__ double cell_view_t::particles_in_range(double3 const pos,
-                                                           double radius) {
+__host__ __device__ inline constexpr void check_scale(double &min_scale,
+                                                      int &cur_dir,
+                                                      int const &dir,
+                                                      double const &val) {
+  if (min_scale < val) {
+    min_scale = val;
+    cur_dir = dir;
+  }
+}
+
+__host__ __device__ double
+cell_view_t::particles_in_range(const size_t idx, const double r1,
+                                const double r2) const {
   double result = 0.0L;
-  for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
-    if (distance(pos, box.particles[p_idx].pos) <= radius) {
-      result += 1;
+  const double3 &pos = box.particles[idx].pos;
+  for (size_t p_idx = 0; p_idx < box.particle_count; p_idx++) {
+    if (p_idx == idx) {
+      continue;
     }
+
+    const particle_t &part = box.particles[p_idx];
+    for (double coeff_x = -1; coeff_x < 2; coeff_x += 1) {
+      for (double coeff_y = -1; coeff_y < 2; coeff_y += 1) {
+        for (double coeff_z = -1; coeff_z < 2; coeff_z += 1) {
+          const double3 p_pos = {
+              .x = part.pos.x + box.dimensions.x * coeff_x,
+              .y = part.pos.y + box.dimensions.y * coeff_y,
+              .z = part.pos.z + box.dimensions.z * coeff_z,
+          };
+
+          const double dist = distance(p_pos, pos);
+          if (dist <= r2 && dist >= r1) {
+            result += 1;
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+__global__ void energy_square_well(cell_view_t const view, particle_t const &p,
+                                   double *output, int3 strides,
+                                   double3 coeff_vals, double const sigma,
+                                   double const val) {
+
+  int thread_idx = threadIdx.x;
+  double dx = (thread_idx % strides.x) - coeff_vals.x;
+  double dy = (thread_idx % strides.y) - coeff_vals.y;
+  double dz = (thread_idx % strides.z) - coeff_vals.z;
+
+  int idx_x = (int)((p.pos.x + dx * view.cell_size.x) / view.cell_size.x);
+  idx_x = idx_x % view.cells_per_axis;
+  int idx_y = (int)((p.pos.y + dy * view.cell_size.y) / view.cell_size.y);
+  idx_y = idx_y % view.cells_per_axis;
+  int idx_z = (int)((p.pos.z + dz * view.cell_size.z) / view.cell_size.z);
+  idx_z = idx_z % view.cells_per_axis;
+
+  size_t cell_idx = idx_x * view.cells_per_axis * view.cells_per_axis +
+                    idx_y * view.cells_per_axis + idx_z;
+  cell_t const &cell = view.cells[cell_idx];
+
+  double result = 0;
+  for (size_t i = 0; i < cell.num_particles; i++) {
+    if (distance(p.pos, view.box.particles[cell.particle_indices[i]].pos) <=
+        sigma) {
+      result += val;
+    }
+  }
+
+  /* printf("Idx = %i, result = %d\n", thread_idx, result); */
+  output[thread_idx] = result;
+}
+
+double cell_view_t::particle_energy_square_well_device(particle_t const &p,
+                                                       double const sigma,
+                                                       double const val) {
+  double3 coeff_vals = {
+      .x = ceil(sigma / cell_size.x) + 1.0F,
+      .y = ceil(sigma / cell_size.y) + 1.0F,
+      .z = ceil(sigma / cell_size.z) + 1.0F,
+  };
+
+  int stride_x = 2 * coeff_vals.x;
+  int stride_y = 4 * coeff_vals.x * coeff_vals.y;
+  int stride_z = 8 * coeff_vals.x * coeff_vals.y * coeff_vals.z;
+
+  int3 strides = {stride_x, stride_y, stride_z};
+
+  double *results;
+  size_t thread_count = coeff_vals.x * coeff_vals.y * coeff_vals.z * 8;
+  cudaMallocManaged(&results, sizeof(double) * thread_count);
+  energy_square_well<<<1, thread_count>>>(*this, p, results, strides,
+                                          coeff_vals, sigma, val);
+  cudaDeviceSynchronize();
+
+  double result = 0;
+  for (size_t i = 0; i < thread_count; i++) {
+    result += results[i];
   }
   return result;
 }

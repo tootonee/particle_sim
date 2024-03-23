@@ -24,16 +24,18 @@ struct __align__(32) particle_t {
   void random_particle_pos(rng_gen & rng_x, rng_gen & rng_y, rng_gen & rng_z,
                            std::mt19937 & re);
 
-  __host__ __device__ inline constexpr bool intersects(particle_t const &rhs)
-      const {
-    double const diameter = radius + rhs.radius;
-    return distance(pos, rhs.pos) < diameter && !(idx != rhs.idx);
+  __host__ __device__ inline constexpr bool intersects(
+      double3 const other_pos, double const other_radius) {
+    double const diameter = radius + other_radius;
+    return distance(pos, other_pos) <= diameter;
   }
 
-  __host__ __device__ inline constexpr bool intersects(
-      double3 const other_pos, double const other_radius) const {
-    double const diameter = radius + other_radius;
-    return distance(pos, other_pos) < diameter;
+  __host__ __device__ inline constexpr bool intersects(particle_t const &rhs) {
+    if (pos == rhs.pos) {
+      return false;
+    }
+    double const diameter = radius + rhs.radius;
+    return distance(pos, rhs.pos) < diameter;
   }
 };
 

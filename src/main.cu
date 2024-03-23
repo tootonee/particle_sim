@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <ostream>
 #include <random>
 #include <sstream>
@@ -19,14 +20,40 @@
 //   // cudaFree(box.particles[id].patches);
 // }
 
-constexpr size_t PARTICLE_COUNT = 512;
+constexpr size_t PARTICLE_COUNT = 500;
+/* constexpr size_t ITERATIONS = 10'000; */
 constexpr size_t ITERATIONS = 10'000;
-/* constexpr size_t ITERATIONS = 100'000; */
-constexpr size_t ITERATIONS_PER_EXPORT = 10;
-/* constexpr double TEMPERATURE = 275.15L; */
-constexpr double TEMPERATURE = 2.15L;
+constexpr size_t ITERATIONS_PER_EXPORT = 100;
+constexpr double TEMPERATURE = 2;
+/* constexpr double TEMPERATURE = 2.15L; */
 /* constexpr double BOLTZMANN_C = 1.380649e-23L; */
-constexpr double BOLTZMANN_C = 1.380649e-1L;
+/* constexpr double BOLTZMANN_C = 1.380649e-1L; */
+/* constexpr double BOLTZMANN_C = 1.0L; */
+
+std::map<double, double> do_distr(cell_view_t const &view,
+                                  double const rho = 0.5L,
+                                  double const start = 1L,
+                                  double const dr = 0.01L,
+                                  double const max_r = 5L) {
+  std::map<double, double> distr{};
+  double radius = start;
+  double v_old = 0;
+  double v_new = start * start * start;
+
+  while (radius < max_r) {
+    double num = 0.0F;
+    for (size_t p_idx = 0; p_idx < view.box.particle_count; p_idx++) {
+      num += view.particles_in_range(p_idx, radius, radius + dr);
+    }
+    std::cout << "Radius = " << radius << ", num = " << num << std::endl;
+    v_old = v_new;
+    radius += dr;
+    v_new = radius * radius * radius;
+    double const val = 3 * num / (4 * M_PI * rho * (v_new - v_old));
+    distr[radius] = val / view.box.particle_count;
+  }
+  return distr;
+}
 
 int main() {
   std::random_device r;
@@ -38,12 +65,12 @@ int main() {
   cell_view_t view({10, 10, 10}, 16);
   std::cout << "Box particles = " << view.box.particles << std::endl;
 
+  std::vector<std::pair<size_t, size_t>> intersects{};
+
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
     std::cout << "I = " << i << std::endl;
-    view.add_particle_random_pos(0.25, unif_x, unif_y, unif_z, re);
+    view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
   }
-
-  std::vector<double> energies{};
 
   std::uniform_real_distribution<double> unif_r(0, 0.999L);
   for (size_t iters = 0; iters <= ITERATIONS; iters++) {
@@ -52,7 +79,7 @@ int main() {
       char buf[16];
       std::sprintf(buf, "data/%06li.pdb", idx);
       export_particles_to_pdb(view.box, buf);
-      energies.push_back(view.total_energy());
+
       std::cout << "I = " << idx << std::endl;
     }
 #pragma omp parallel for
@@ -60,66 +87,63 @@ int main() {
       size_t const p_idx = unif_r(re) * view.box.particle_count;
       double const radius = view.box.particles[p_idx].radius;
       double3 const old_pos = view.box.particles[p_idx].pos;
+      particle_t &part = view.box.particles[p_idx];
       // std::cout << "Particle pos = <" << old_pos.x << ", " << old_pos.y <<
       // ","
       //           << old_pos.z << ">, idx = " << p_idx << std::endl;
 
-      double old_energy =
-          view.particle_energy_square_well(old_pos, radius, 2.5);
+      // double const old_energy = view.particle_energy_square_well(part, 0.2,
+      // 1);
 
-      double3 const new_pos = view.try_random_particle_disp(p_idx, unif_r, re);
+      // double const old_energy =
+      // view.particle_energy_square_well_device(part, 1.5);
+
+      double3 const new_pos =
+          view.try_random_particle_disp(p_idx, unif_r, re, 0.5);
       // std::cout << "New Particle pos = <" << new_pos.x << ", " << new_pos.y
       //           << "," << new_pos.z << ">, idx = " << p_idx << std::endl;
       if (new_pos.x == -1) {
         continue;
       }
-      double new_energy =
-          view.particle_energy_square_well(new_pos, radius, 2.5);
+      // part.pos = new_pos;
+      // double new_energy = view.particle_energy_square_well(part, 0.2, 1);
+      // // double const new_energy =
+      // //     view.particle_energy_square_well_device(part, 1.5);
+      // part.pos = old_pos;
 
-      double prob =
-          exp((new_energy - old_energy) / (BOLTZMANN_C * TEMPERATURE));
-      // std::cout << "Old energy = " << old_energy
-      //           << ", New energy = " << new_energy << ", Prob = " << prob
-      //           << std::endl;
-      if (unif_r(re) >= prob) {
-        continue;
-      }
+      // double prob = exp((old_energy - new_energy) / (TEMPERATURE));
+      // // std::cout << "Old energy = " << old_energy
+      // //           << ", New energy = " << new_energy << ", Prob = " << prob
+      // //           << std::endl;
+      // if (unif_r(re) >= prob) {
+      //   continue;
+      // }
       view.remove_particle(view.box.particles[p_idx]);
-      view.box.particles[p_idx].pos = new_pos;
+      part.pos = new_pos;
       view.add_particle(view.box.particles[p_idx]);
     }
   }
 
-  std::vector<double> distribution{};
-  double3 pos = {
-      view.box.dimensions.x / 2,
-      view.box.dimensions.y / 2,
-      view.box.dimensions.z / 2,
-  };
-  double radius = 0.1L;
+  std::ofstream file("tmp.py");
+  file << std::fixed << std::setprecision(6);
+  file << "a = [" << std::endl;
+  for (size_t i = 0; i < view.box.particle_count; i++) {
+    const double3 &p = view.box.particles[i].pos;
+    file << "  (" << p.x << ", " << p.y << ", " << p.z << ")," << std::endl;
+  }
+  file << "]" << std::endl;
 
-  while (radius <= 10) {
-    const size_t p_idx = unif_r(re) * view.box.particle_count;
-    const double num =
-        view.particles_in_range(view.box.particles[p_idx].pos, radius);
-    const double res = 8 * num / (M_PI * 1.072330292 * radius * radius * 0.1L);
-    distribution.push_back(res);
-    radius += 0.1;
+  std::map<double, double> distr = do_distr(view);
+  std::ofstream other_file("output.dat");
+  other_file << std::fixed << std::setprecision(6);
+  for (const auto &[r, val] : distr) {
+    if (val == 0) {
+      continue;
+    }
+    other_file << r << "    " << val << std::endl;
   }
 
   view.free();
-
-  std::ofstream file("output.txt");
-  file << std::fixed << std::setprecision(3);
-  for (const double energy : energies) {
-    file << energy << std::endl;
-  }
-
-  std::ofstream file_distr("distr_output.txt");
-  file_distr << std::fixed << std::setprecision(3);
-  for (const double num_p : distribution) {
-    file_distr << num_p << std::endl;
-  }
 
   return 0;
 }
