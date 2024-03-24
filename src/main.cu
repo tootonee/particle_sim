@@ -20,10 +20,11 @@
 //   // cudaFree(box.particles[id].patches);
 // }
 
-constexpr size_t PARTICLE_COUNT = 500;
+constexpr size_t PARTICLE_COUNT = 200;
 /* constexpr size_t ITERATIONS = 10'000; */
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 100;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 1000;
 constexpr double TEMPERATURE = 1.5;
 /* constexpr double TEMPERATURE = 2.15L; */
 /* constexpr double BOLTZMANN_C = 1.380649e-23L; */
@@ -72,7 +73,20 @@ int main() {
   }
 
   std::uniform_real_distribution<double> unif_r(0, 0.999L);
+
+  double const rho =
+      view.box.particle_count /
+      (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
+  std::map<double, double> distr{};
+
   for (size_t iters = 0; iters <= ITERATIONS; iters++) {
+    if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
+      std::map<double, double> tmp_distr = do_distr(view, rho, 0.95, 0.01L);
+      for (const auto &[radius, value] : tmp_distr) {
+          distr[radius] += value;
+      }
+    }
+
     if (iters % ITERATIONS_PER_EXPORT == 0) {
       const size_t idx = iters / ITERATIONS_PER_EXPORT;
       char buf[16];
@@ -81,15 +95,11 @@ int main() {
 
       std::cout << "I = " << idx << std::endl;
     }
-#pragma omp parallel for
+
     for (size_t i = 0; i < view.box.particle_count; i++) {
       size_t const p_idx = unif_r(re) * view.box.particle_count;
-      double const radius = view.box.particles[p_idx].radius;
       double3 const old_pos = view.box.particles[p_idx].pos;
       particle_t &part = view.box.particles[p_idx];
-      // std::cout << "Particle pos = <" << old_pos.x << ", " << old_pos.y <<
-      // ","
-      //           << old_pos.z << ">, idx = " << p_idx << std::endl;
 
       double const old_energy = view.particle_energy_square_well(part, 0.2, 1);
 
@@ -98,8 +108,6 @@ int main() {
 
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, unif_r, re, 0.5);
-      // std::cout << "New Particle pos = <" << new_pos.x << ", " << new_pos.y
-      //           << "," << new_pos.z << ">, idx = " << p_idx << std::endl;
       if (new_pos.x == -1) {
         continue;
       }
@@ -109,10 +117,7 @@ int main() {
       //     view.particle_energy_square_well_device(part, 1.5);
       part.pos = old_pos;
 
-      double prob = exp((old_energy - new_energy) / (TEMPERATURE));
-      // std::cout << "Old energy = " << old_energy
-      //           << ", New energy = " << new_energy << ", Prob = " << prob
-      //           << std::endl;
+      double prob = exp((new_energy - old_energy) / (TEMPERATURE));
       if (unif_r(re) >= prob) {
         continue;
       }
@@ -121,27 +126,20 @@ int main() {
       view.add_particle(view.box.particles[p_idx]);
     }
   }
-
-  std::ofstream file("tmp.py");
-  file << std::fixed << std::setprecision(6);
-  file << "a = [" << std::endl;
-  for (size_t i = 0; i < view.box.particle_count; i++) {
-    const double3 &p = view.box.particles[i].pos;
-    file << "  (" << p.x << ", " << p.y << ", " << p.z << ")," << std::endl;
-  }
-  file << "]" << std::endl;
-
-  double const rho =
-      view.box.particle_count /
-      (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
-  std::map<double, double> distr = do_distr(view, rho, 1, 0.04);
+  // std::map<double, double> distr = do_distr(view, rho, 1, 0.005L);
   std::ofstream other_file("output.dat");
   other_file << std::fixed << std::setprecision(6);
+  double const coeff = (ITERATIONS / ITERATIONS_PER_GRF_EXPORT) + 1; 
   for (const auto &[r, val] : distr) {
-    if (val == 0) {
+    double const real_val = val / coeff;
+    if (real_val <= 0.1) {
       continue;
     }
-    other_file << r << "    " << val << std::endl;
+    other_file << r << "    " << real_val << std::endl;
+    // if (val <= 0.1) {
+    //   continue;
+    // }
+    // other_file << r << "    " << val << std::endl;
   }
 
   view.free();
