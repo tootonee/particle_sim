@@ -13,23 +13,12 @@
 #include <sstream>
 #include <vector>
 
-// __global__ void print_particle(particle_box_t box) {
-//   int id = threadIdx.x;
-//   double3 const v = box.particles[id].pos;
-//   printf("(%lf, %lf, %lf)\n", v.x, v.y, v.z);
-//   // cudaFree(box.particles[id].patches);
-// }
 
-constexpr size_t PARTICLE_COUNT = 500;
-/* constexpr size_t ITERATIONS = 10'000; */
+constexpr size_t PARTICLE_COUNT = 200;
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 100;
-constexpr size_t ITERATIONS_PER_GRF_EXPORT = 100;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 10;
 constexpr double TEMPERATURE = 1.5;
-/* constexpr double TEMPERATURE = 2.15L; */
-/* constexpr double BOLTZMANN_C = 1.380649e-23L; */
-/* constexpr double BOLTZMANN_C = 1.380649e-1L; */
-/* constexpr double BOLTZMANN_C = 1.0L; */
 
 std::map<double, double> do_distr(cell_view_t const &view,
                                   double const rho = 0.5L,
@@ -81,7 +70,7 @@ int main() {
 
   for (size_t iters = 0; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.05L);
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L);
       for (const auto &[radius, value] : tmp_distr) {
           distr[radius] += value;
       }
@@ -101,7 +90,7 @@ int main() {
       double3 const old_pos = view.box.particles[p_idx].pos;
       particle_t &part = view.box.particles[p_idx];
 
-      // double const old_energy = view.particle_energy_square_well(part, 0.2, 1);
+      double const old_energy = view.particle_energy_square_well(part, 0.2, 1);
 
       // double const old_energy =
       // view.particle_energy_square_well_device(part, 1.5);
@@ -111,16 +100,16 @@ int main() {
       if (new_pos.x == -1) {
         continue;
       }
-      // part.pos = new_pos;
-      // double new_energy = view.particle_energy_square_well(part, 0.2, 1);
-      // // double const new_energy =
-      // //     view.particle_energy_square_well_device(part, 1.5);
-      // part.pos = old_pos;
+      part.pos = new_pos;
+      double new_energy = view.particle_energy_square_well(part, 0.2, 1);
+      // double const new_energy =
+      //     view.particle_energy_square_well_device(part, 1.5);
+      part.pos = old_pos;
 
-      // double prob = exp((old_energy - new_energy) / TEMPERATURE);
-      // if (unif_r(re) >= prob) {
-      //   continue;
-      // }
+      double prob = exp((old_energy - new_energy) / TEMPERATURE);
+      if (unif_r(re) >= prob) {
+        continue;
+      }
       view.remove_particle(view.box.particles[p_idx]);
       part.pos = new_pos;
       view.box.update_particle(p_idx);
@@ -139,19 +128,6 @@ int main() {
     other_file << r << "    " << real_val << std::endl;
   }
 
-  // std::map<double, double> tmp_distr = do_distr(view, rho, 0.95, 0.01L);
-  // for (const auto &[radius, value] : tmp_distr) {
-  //     distr[radius] += value;
-  // }
-  // std::ofstream other_file("output.dat");
-  // other_file << std::fixed << std::setprecision(6);
-  // double const coeff = (ITERATIONS / ITERATIONS_PER_GRF_EXPORT) + 1; 
-  // for (const auto &[r, val] : distr) {
-  //   if (val <= 0.1) {
-  //     continue;
-  //   }
-  //   other_file << r << "    " << val << std::endl;
-  // }
 
   view.free();
 
