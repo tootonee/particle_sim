@@ -60,12 +60,12 @@ struct __align__(32) cell_view_t {
   void remove_particle_from_box(particle_t const &p);
   bool particle_intersects(particle_t const &p);
   double particle_energy_square_well(
-      particle_t const &p, double const sigma = 2.0f, double const val = 1.0f);
+      particle_t const &p, double const sigma = 1.0f, double const val = 0.2f);
   double particle_energy_square_well_device(
       particle_t const &p, double const sigma = 2.0f, double const val = 1.0f);
   double particles_in_range(
       const size_t idx, const double r1, const double r2) const;
-  double total_energy();
+  double total_energy(double const sigma = 2.0F, double const val = 2.0F);
 
   inline constexpr __host__ __device__ size_t get_cell_idx(particle_t const &p) {
     uint3 const particle_idx = {

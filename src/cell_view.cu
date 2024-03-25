@@ -8,12 +8,13 @@ void cell_view_t::alloc_cells() {
   size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
   cells = new cell_t[cell_count];
   cudaMalloc(&cells_device, sizeof(cell_t) * cell_count);
-  // cudaMallocManaged(&cells, sizeof(cell_t) * cell_count, cudaMemAttachGlobal);
+  // cudaMallocManaged(&cells, sizeof(cell_t) * cell_count,
+  // cudaMemAttachGlobal);
 }
 
-void cell_view_t::free_cells() { 
-    delete[] cells;
-    cudaFree(cells_device);
+void cell_view_t::free_cells() {
+  delete[] cells;
+  cudaFree(cells_device);
 }
 
 void cell_view_t::free() {
@@ -24,10 +25,11 @@ void cell_view_t::free() {
 void cell_view_t::update_cell(size_t const cell_idx) {
   const size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
   if (cell_idx >= cell_count) {
-      return;
+    return;
   }
 
-  cudaMemcpy(cells_device + cell_idx, cells + cell_idx, sizeof(cell_t), cudaMemcpyHostToDevice);
+  cudaMemcpy(cells_device + cell_idx, cells + cell_idx, sizeof(cell_t),
+             cudaMemcpyHostToDevice);
 }
 
 bool cell_view_t::add_particle(particle_t const &p) {
@@ -121,8 +123,7 @@ void cell_view_t::remove_particle(particle_t const &p) {
   }
 }
 
-void
-cell_view_t::remove_particle_from_box(particle_t const &p) {
+void cell_view_t::remove_particle_from_box(particle_t const &p) {
   size_t cell_idx = get_cell_idx(p);
   cell_t &cell = cells[cell_idx];
   if (cell.num_particles == 0) {
@@ -208,17 +209,18 @@ void cell_view_t::add_particle_random_pos(double radius, rng_gen &rng_x,
   box.particle_count++;
 }
 
-double
-cell_view_t::particle_energy_square_well(particle_t const &p,
-                                         double const sigma, double const val) {
+double cell_view_t::particle_energy_square_well(particle_t const &p,
+                                                double const sigma,
+                                                double const val) {
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   double result = 0.0F;
+  double const dist = 2 * sigma;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   double3 coeff_val = {
-      .x = 2 * ceil(sigma / cell_size.x) + 1,
-      .y = 2 * ceil(sigma / cell_size.y) + 1,
-      .z = 2 * ceil(sigma / cell_size.z) + 1,
+      .x = ceil(dist / cell_size.x),
+      .y = ceil(dist / cell_size.y),
+      .z = ceil(dist / cell_size.z),
   };
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = p.pos.x + coeff_x * cell_size.x;
@@ -253,8 +255,9 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
 
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
-          if (distance(p.pos, box.particles[cell.particle_indices[i]].pos) <=
-              sigma) {
+          particle_t const &part = box.particles[cell.particle_indices[i]];
+          double d_p_part = distance(p.pos, part.pos);
+          if (d_p_part >= sigma && d_p_part <= dist) {
             result += val;
           }
         }
@@ -262,44 +265,26 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
     }
   }
   return result;
-
-//   double result = 0.0L;
-//
-// #pragma omp parallel for
-//   for (size_t idx = 0; idx < box.particle_count; idx++) {
-//       if (idx = p.idx) {continue;}
-//       const particle_t &part = box.particles[idx];
-//
-//       if (distance(p.pos, part.pos) <= sigma) {
-//          result -= val;
-//       }
-//   }
-//
-//   return result;
 }
 
-
-double cell_view_t::total_energy() {
+double cell_view_t::total_energy(double const sigma, double const val) {
   double total = 0.0F;
   for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
-    total += particle_energy_square_well(box.particles[p_idx]);
+    total += particle_energy_square_well(box.particles[p_idx], sigma, val);
   }
   return total / 2.0F;
 }
 
-inline constexpr void check_scale(double &min_scale,
-                                                      int &cur_dir,
-                                                      int const &dir,
-                                                      double const &val) {
+inline constexpr void check_scale(double &min_scale, int &cur_dir,
+                                  int const &dir, double const &val) {
   if (min_scale < val) {
     min_scale = val;
     cur_dir = dir;
   }
 }
 
-double
-cell_view_t::particles_in_range(const size_t idx, const double r1,
-                                const double r2) const {
+double cell_view_t::particles_in_range(const size_t idx, const double r1,
+                                       const double r2) const {
   double result = 0.0L;
   const double3 &pos = box.particles[idx].pos;
   for (size_t p_idx = 0; p_idx < box.particle_count; p_idx++) {
@@ -329,10 +314,10 @@ cell_view_t::particles_in_range(const size_t idx, const double r1,
 }
 
 __global__ void energy_square_well(cell_view_t const view, particle_t const &p,
-                                   int3 strides,
-                                   double3 coeff_vals, double const sigma,
-                                   double const val) {
-  // const size_t cell_count = view.cells_per_axis * view.cells_per_axis * view.cells_per_axis;
+                                   int3 strides, double3 coeff_vals,
+                                   double const sigma, double const val) {
+  // const size_t cell_count = view.cells_per_axis * view.cells_per_axis *
+  // view.cells_per_axis;
   int thread_idx = threadIdx.x;
   double dx = (thread_idx % strides.x) - coeff_vals.x;
   double dy = (thread_idx % strides.y) - coeff_vals.y;
@@ -379,10 +364,11 @@ double cell_view_t::particle_energy_square_well_device(particle_t const &p,
 
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   const size_t thread_count = coeff_val.x * coeff_val.y * coeff_val.z * 8;
-  energy_square_well<<<1, thread_count>>>(*this, p, strides,
-                                          coeff_val, sigma, val);
-  cudaMemPrefetchAsync (box.particles, sizeof(particle_t) * box.particle_count, 0);
-  cudaMemPrefetchAsync (cells, sizeof(cell_t) * cell_cnt, 0);
+  energy_square_well<<<1, thread_count>>>(*this, p, strides, coeff_val, sigma,
+                                          val);
+  cudaMemPrefetchAsync(box.particles, sizeof(particle_t) * box.particle_count,
+                       0);
+  cudaMemPrefetchAsync(cells, sizeof(cell_t) * cell_cnt, 0);
   cudaDeviceSynchronize();
 
   double result = 0;

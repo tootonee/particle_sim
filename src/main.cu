@@ -13,12 +13,11 @@
 #include <sstream>
 #include <vector>
 
-
-constexpr size_t PARTICLE_COUNT = 200;
+constexpr size_t PARTICLE_COUNT = 300;
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 100;
 constexpr size_t ITERATIONS_PER_GRF_EXPORT = 100;
-constexpr double TEMPERATURE = 2;
+constexpr double TEMPERATURE = 1.5;
 
 std::map<double, double> do_distr(cell_view_t const &view,
                                   double const rho = 0.5L,
@@ -51,7 +50,7 @@ int main() {
   std::uniform_real_distribution<double> unif_x(0, 10);
   std::uniform_real_distribution<double> unif_y(0, 10);
   std::uniform_real_distribution<double> unif_z(0, 10);
-  cell_view_t view({10, 10, 10}, 16);
+  cell_view_t view({10, 10, 10}, 10);
 
   std::vector<std::pair<size_t, size_t>> intersects{};
 
@@ -68,9 +67,9 @@ int main() {
 
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 4.5L);
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 5);
       for (const auto &[radius, value] : tmp_distr) {
-          distr[radius] += value;
+        distr[radius] += value;
       }
     }
 
@@ -81,13 +80,17 @@ int main() {
       export_particles_to_pdb(view.box, buf);
 
       std::cout << "I = " << idx << std::endl;
+      // std::cout << "I = " << idx << ", energy = " << view.total_energy(1,
+      // 0.2)
+      //           << std::endl;
     }
 
     for (size_t i = 0; i < view.box.particle_count; i++) {
-      size_t const p_idx = static_cast<size_t>(unif_r(re) * view.box.particle_count) % view.box.particle_count;
+      size_t const p_idx =
+          static_cast<size_t>(unif_r(re) * view.box.particle_count) %
+          view.box.particle_count;
       double3 const old_pos = view.box.particles[p_idx].pos;
       particle_t &part = view.box.particles[p_idx];
-
 
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, unif_r, re, 0.5);
@@ -103,24 +106,20 @@ int main() {
       // double const new_energy =
       //     view.particle_energy_square_well_device(part, 1.5);
       part.pos = old_pos;
-      if (new_energy > old_energy) {
-          continue;
-      }
 
-      double prob = exp(-(new_energy - old_energy) / TEMPERATURE);
-      if (unif_r(re) > prob) {
-        continue;
+      double prob = exp((old_energy - new_energy) / TEMPERATURE);
+      if (unif_r(re) > prob || new_energy < old_energy) {
+        view.remove_particle(view.box.particles[p_idx]);
+        part.pos = new_pos;
+        view.box.update_particle(p_idx);
+        view.add_particle(view.box.particles[p_idx]);
       }
-      view.remove_particle(view.box.particles[p_idx]);
-      part.pos = new_pos;
-      view.box.update_particle(p_idx);
-      view.add_particle(view.box.particles[p_idx]);
     }
   }
 
   std::ofstream other_file("output.dat");
   other_file << std::fixed << std::setprecision(6);
-  double const coeff = ITERATIONS / ITERATIONS_PER_GRF_EXPORT; 
+  double const coeff = ITERATIONS / ITERATIONS_PER_GRF_EXPORT;
   for (const auto &[r, val] : distr) {
     double const real_val = val / coeff;
     if (real_val <= 0.1) {
