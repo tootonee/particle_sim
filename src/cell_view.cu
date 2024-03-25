@@ -215,11 +215,10 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
   double result = 0.0F;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
-  const double dist = 2 * p.radius + sigma;
   double3 coeff_val = {
-      .x = ceil(dist / cell_size.x),
-      .y = ceil(dist / cell_size.y),
-      .z = ceil(dist / cell_size.z),
+      .x = 2 * ceil(sigma / cell_size.x) + 1,
+      .y = 2 * ceil(sigma / cell_size.y) + 1,
+      .z = 2 * ceil(sigma / cell_size.z) + 1,
   };
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = p.pos.x + coeff_x * cell_size.x;
@@ -246,21 +245,37 @@ cell_view_t::particle_energy_square_well(particle_t const &p,
         if (z >= box.dimensions.z) {
           z = 0;
         }
+
         const size_t cell_idx = get_cell_idx((double3){x, y, z});
         if (cell_idx >= cell_cnt) {
           continue;
         }
+
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
           if (distance(p.pos, box.particles[cell.particle_indices[i]].pos) <=
-              dist) {
-            result -= val;
+              sigma) {
+            result += val;
           }
         }
       }
     }
   }
   return result;
+
+//   double result = 0.0L;
+//
+// #pragma omp parallel for
+//   for (size_t idx = 0; idx < box.particle_count; idx++) {
+//       if (idx = p.idx) {continue;}
+//       const particle_t &part = box.particles[idx];
+//
+//       if (distance(p.pos, part.pos) <= sigma) {
+//          result -= val;
+//       }
+//   }
+//
+//   return result;
 }
 
 
