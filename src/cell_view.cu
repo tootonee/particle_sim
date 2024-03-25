@@ -256,9 +256,21 @@ double cell_view_t::particle_energy_square_well(particle_t const &p,
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
           particle_t const &part = box.particles[cell.particle_indices[i]];
-          double d_p_part = distance(p.pos, part.pos);
-          if (d_p_part <= dist) {
-            result += val;
+          for (double coeff_x = -1; coeff_x < 2; coeff_x += 1) {
+            for (double coeff_y = -1; coeff_y < 2; coeff_y += 1) {
+              for (double coeff_z = -1; coeff_z < 2; coeff_z += 1) {
+                const double3 p_pos = {
+                    .x = part.pos.x + box.dimensions.x * coeff_x,
+                    .y = part.pos.y + box.dimensions.y * coeff_y,
+                    .z = part.pos.z + box.dimensions.z * coeff_z,
+                };
+
+                double d_p_part = distance(p.pos, p_pos);
+                if (d_p_part <= dist) {
+                  result += val;
+                }
+              }
+            }
           }
         }
       }

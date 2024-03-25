@@ -3,8 +3,8 @@
 #ifndef PARTICLE_BOX_H
 #define PARTICLE_BOX_H
 
-#include <random>
 #include <cstring>
+#include <random>
 
 #include "particle.h"
 
