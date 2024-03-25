@@ -33,7 +33,7 @@ void cell_view_t::update_cell(size_t const cell_idx) {
 }
 
 bool cell_view_t::add_particle(particle_t const &p) {
-  size_t cell_idx = get_cell_idx(p);
+  size_t cell_idx = get_cell_idx(p.pos);
   if (cell_idx >= cells_per_axis * cells_per_axis * cells_per_axis) {
     return false;
   }
@@ -72,9 +72,9 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
   const double3 old_pos = p_orig.pos;
 
   double3 disp = {
-      scale * (rng(re) - 0.5),
-      scale * (rng(re) - 0.5),
-      scale * (rng(re) - 0.5),
+      2 * scale * (rng(re) - 0.5),
+      2 * scale * (rng(re) - 0.5),
+      2 * scale * (rng(re) - 0.5),
   };
 
   disp = {
@@ -107,7 +107,7 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
 }
 
 void cell_view_t::remove_particle(particle_t const &p) {
-  size_t cell_idx = get_cell_idx(p);
+  size_t cell_idx = get_cell_idx(p.pos);
   cell_t &cell = cells[cell_idx];
   if (cell.num_particles == 0) {
     return;
@@ -124,7 +124,7 @@ void cell_view_t::remove_particle(particle_t const &p) {
 }
 
 void cell_view_t::remove_particle_from_box(particle_t const &p) {
-  size_t cell_idx = get_cell_idx(p);
+  size_t cell_idx = get_cell_idx(p.pos);
   cell_t &cell = cells[cell_idx];
   if (cell.num_particles == 0) {
     return;
@@ -214,7 +214,7 @@ double cell_view_t::particle_energy_square_well(particle_t const &p,
                                                 double const val) {
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   double result = 0.0F;
-  double const dist = 2 * sigma;
+  double const dist = 2 * p.radius + sigma;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   double3 coeff_val = {
@@ -225,27 +225,27 @@ double cell_view_t::particle_energy_square_well(particle_t const &p,
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = p.pos.x + coeff_x * cell_size.x;
     if (x < 0) {
-      x = box.dimensions.x - cell_size.x;
+      x += box.dimensions.x;
     }
     if (x >= box.dimensions.x) {
-      x = 0;
+      x -= box.dimensions.x;
     }
     for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
       double y = p.pos.y + coeff_y * cell_size.y;
       if (y < 0) {
-        y = box.dimensions.y - cell_size.y;
+        y += box.dimensions.y;
       }
       if (y >= box.dimensions.y) {
-        y = 0;
+        y -= box.dimensions.y;
       }
       for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
            coeff_z += 1) {
         double z = p.pos.z + coeff_z * cell_size.z;
         if (z < 0) {
-          z = box.dimensions.z - cell_size.z;
+          z += box.dimensions.z;
         }
         if (z >= box.dimensions.z) {
-          z = 0;
+          z -= box.dimensions.z;
         }
 
         const size_t cell_idx = get_cell_idx((double3){x, y, z});
@@ -257,7 +257,7 @@ double cell_view_t::particle_energy_square_well(particle_t const &p,
         for (size_t i = 0; i < cell.num_particles; i++) {
           particle_t const &part = box.particles[cell.particle_indices[i]];
           double d_p_part = distance(p.pos, part.pos);
-          if (d_p_part >= sigma && d_p_part <= dist) {
+          if (d_p_part <= dist) {
             result += val;
           }
         }

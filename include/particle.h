@@ -30,7 +30,8 @@ struct __align__(32) particle_t {
     return distance(pos, other_pos) <= diameter;
   }
 
-  __host__ __device__ inline constexpr bool intersects(particle_t const &rhs) {
+  __host__ __device__ inline constexpr bool intersects(particle_t const &rhs)
+      const {
     if (pos == rhs.pos) {
       return false;
     }
@@ -38,7 +39,8 @@ struct __align__(32) particle_t {
     return distance(pos, rhs.pos) < diameter;
   }
 
-  __host__ __device__ inline constexpr bool would_interact(particle_t const &rhs);
+  __host__ __device__ inline constexpr bool would_interact(
+      particle_t const &rhs);
 };
 
 __host__ __device__ constexpr inline bool operator==(particle_t const &lhs,
