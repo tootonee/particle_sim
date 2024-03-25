@@ -37,6 +37,8 @@ struct __align__(32) particle_t {
     double const diameter = radius + rhs.radius;
     return distance(pos, rhs.pos) < diameter;
   }
+
+  __host__ __device__ inline constexpr bool would_interact(particle_t const &rhs);
 };
 
 __host__ __device__ constexpr inline bool operator==(particle_t const &lhs,
