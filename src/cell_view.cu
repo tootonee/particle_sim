@@ -78,21 +78,33 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
   };
 
   disp = {
-      std::abs(p_orig.pos.x + disp.x),
-      std::abs(p_orig.pos.y + disp.y),
-      std::abs(p_orig.pos.z + disp.z),
+      p_orig.pos.x + disp.x,
+      p_orig.pos.y + disp.y,
+      p_orig.pos.z + disp.z,
   };
 
+  if (disp.x < 0) {
+    disp.x += box.dimensions.x;
+  }
+
+  if (disp.y < 0) {
+    disp.y += box.dimensions.y;
+  }
+
+  if (disp.z < 0) {
+    disp.z += box.dimensions.z;
+  }
+
   if (disp.x >= box.dimensions.x) {
-    disp.x -= p_orig.pos.x;
+    disp.x -= box.dimensions.x;
   }
 
   if (disp.y >= box.dimensions.y) {
-    disp.y -= p_orig.pos.y;
+    disp.y -= box.dimensions.y;
   }
 
   if (disp.z >= box.dimensions.z) {
-    disp.z -= p_orig.pos.z;
+    disp.z -= box.dimensions.z;
   }
 
   box.particles[particle_idx].pos = disp;
@@ -256,21 +268,13 @@ double cell_view_t::particle_energy_square_well(particle_t const &p,
         cell_t const &cell = cells[cell_idx];
         for (size_t i = 0; i < cell.num_particles; i++) {
           particle_t const &part = box.particles[cell.particle_indices[i]];
-          for (double coeff_x = -1; coeff_x < 2; coeff_x += 1) {
-            for (double coeff_y = -1; coeff_y < 2; coeff_y += 1) {
-              for (double coeff_z = -1; coeff_z < 2; coeff_z += 1) {
-                const double3 p_pos = {
-                    .x = part.pos.x + box.dimensions.x * coeff_x,
-                    .y = part.pos.y + box.dimensions.y * coeff_y,
-                    .z = part.pos.z + box.dimensions.z * coeff_z,
-                };
+          if (part.idx == p.idx) {
+            continue;
+          }
 
-                double d_p_part = distance(p.pos, p_pos);
-                if (d_p_part <= dist) {
-                  result += val;
-                }
-              }
-            }
+          double d_p_part = distance(p.pos, part.pos);
+          if (d_p_part <= dist) {
+            result += val;
           }
         }
       }
@@ -284,7 +288,7 @@ double cell_view_t::total_energy(double const sigma, double const val) {
   for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
     total += particle_energy_square_well(box.particles[p_idx], sigma, val);
   }
-  return total / 2.0F;
+  return total * 0.5L;
 }
 
 inline constexpr void check_scale(double &min_scale, int &cur_dir,

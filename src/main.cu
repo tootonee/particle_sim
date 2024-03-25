@@ -14,11 +14,11 @@
 #include <vector>
 
 constexpr size_t PARTICLE_COUNT = 200;
-constexpr size_t MOVES_PER_ITER = 20;
+constexpr size_t MOVES_PER_ITER = 200;
 constexpr size_t ITERATIONS = 10'000;
-constexpr size_t ITERATIONS_PER_EXPORT = 100;
+constexpr size_t ITERATIONS_PER_EXPORT = 10;
 constexpr size_t ITERATIONS_PER_GRF_EXPORT = 1000;
-constexpr double TEMPERATURE = 3;
+constexpr double TEMPERATURE = 1.5;
 
 std::map<double, double> do_distr(cell_view_t const &view,
                                   double const rho = 0.5L,
@@ -51,7 +51,7 @@ int main() {
   std::uniform_real_distribution<double> unif_x(0, 10);
   std::uniform_real_distribution<double> unif_y(0, 10);
   std::uniform_real_distribution<double> unif_z(0, 10);
-  cell_view_t view({10, 10, 10}, 5);
+  cell_view_t view({10, 10, 10}, 10);
 
   for (size_t i = 1; i <= PARTICLE_COUNT; i++) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
@@ -63,11 +63,12 @@ int main() {
       view.box.particle_count /
       (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
   std::map<double, double> distr{};
-  double init_energy = view.total_energy(0.2, -1);
+  double init_energy = view.total_energy(0.2, 1);
 
-  for (size_t iters = 0; iters <= ITERATIONS; iters++) {
+  std::vector<double> energies;
+  for (size_t iters = 1; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 5);
       for (const auto &[radius, value] : tmp_distr) {
         distr[radius] += value;
       }
@@ -85,6 +86,7 @@ int main() {
       size_t const p_idx =
           static_cast<size_t>(unif_r(re) * view.box.particle_count) %
           view.box.particle_count;
+      // size_t const p_idx = i;
       double3 const old_pos = view.box.particles[p_idx].pos;
       particle_t &part = view.box.particles[p_idx];
 
@@ -95,18 +97,18 @@ int main() {
         continue;
       }
 
-      double const old_energy = view.particle_energy_square_well(part, 0.2, -1);
+      double const old_energy = view.particle_energy_square_well(part, 0.2, 1);
       // double const old_energy =
       // view.particle_energy_square_well_device(part, 1.5);
 
       part.pos = new_pos;
-      double new_energy = view.particle_energy_square_well(part, 0.2, -1);
+      double new_energy = view.particle_energy_square_well(part, 0.2, 1);
       // double const new_energy =
       //     view.particle_energy_square_well_device(part, 1.5);
       part.pos = old_pos;
 
       double prob = exp((old_energy - new_energy) / TEMPERATURE);
-      if (unif_r(re) <= prob && new_energy < old_energy) {
+      if (new_energy < old_energy && unif_r(re) <= prob) {
         continue;
       }
       init_energy += old_energy - new_energy;
@@ -115,17 +117,24 @@ int main() {
       view.box.update_particle(p_idx);
       view.add_particle(view.box.particles[p_idx]);
     }
+    energies.push_back(init_energy);
   }
 
   std::ofstream other_file("output.dat");
   other_file << std::fixed << std::setprecision(6);
-  double const coeff = ITERATIONS / ITERATIONS_PER_GRF_EXPORT + 1;
+  double const coeff = ITERATIONS / ITERATIONS_PER_GRF_EXPORT;
   for (const auto &[r, val] : distr) {
     double const real_val = val / coeff;
-    if (real_val <= 0.1) {
+    if (real_val <= 0.5) {
       continue;
     }
     other_file << r << "    " << real_val << std::endl;
+  }
+  std::ofstream file("energies.dat");
+  file << std::fixed << std::setprecision(6);
+  for (size_t i = 0; i < energies.size(); i++) {
+    file << i / ITERATIONS << "    "
+         << 0.5 * energies[i] / view.box.particle_count << std::endl;
   }
   view.free();
 
