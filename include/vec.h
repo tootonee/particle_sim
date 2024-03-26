@@ -30,4 +30,49 @@ __host__ __device__ constexpr inline double dot(double3 const &lhs,
   return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+/// Quaternion operations
+////////////////////////////////////////////////////////////////////////////////
+__host__ __device__ constexpr inline double4 operator+(double4 const &lhs,
+                                                       double4 const &rhs) {
+  // Sorry, gotta do it like this
+  const double &a1 = lhs.x;
+  const double &b1 = lhs.y;
+  const double &c1 = lhs.z;
+  const double &d1 = lhs.w;
+
+  const double &a2 = rhs.x;
+  const double &b2 = rhs.y;
+  const double &c2 = rhs.z;
+  const double &d2 = rhs.w;
+
+  return {
+      .x = a1 + a2,
+      .y = b1 + b2,
+      .z = c1 + c2,
+      .w = d1 + d2,
+  };
+}
+
+__host__ __device__ constexpr inline double4 operator*(double4 const &lhs,
+                                                       double4 const &rhs) {
+  // Sorry, gotta do it like this
+  const double &a1 = lhs.x;
+  const double &b1 = lhs.y;
+  const double &c1 = lhs.z;
+  const double &d1 = lhs.w;
+
+  const double &a2 = rhs.x;
+  const double &b2 = rhs.y;
+  const double &c2 = rhs.z;
+  const double &d2 = rhs.w;
+
+  return {
+      .x = (a1 * a2 - b1 * b2 - c1 * c2 - d1 * d2),
+      .y = (a1 * b2 + b1 * a2 + c1 * d2 - d1 * c2),
+      .z = (a1 * c2 - b1 * d2 + c1 * a2 + d1 * b2),
+      .w = (a1 * d2 + b1 * c2 - c1 * b2 + d1 * a2),
+  };
+}
+
 #endif
