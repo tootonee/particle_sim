@@ -17,8 +17,10 @@ constexpr size_t PARTICLE_COUNT = 200;
 constexpr size_t MOVES_PER_ITER = 200;
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 10;
-constexpr size_t ITERATIONS_PER_GRF_EXPORT = 1000;
-constexpr double TEMPERATURE = 1.5;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 500;
+constexpr double TEMPERATURE = 0.88;
+constexpr double MAX_STEP = 0.2886751346L;
+// constexpr double MAX_STEP = 0.5;
 
 std::map<double, double> do_distr(cell_view_t const &view,
                                   double const rho = 0.5L,
@@ -68,7 +70,7 @@ int main() {
   std::vector<double> energies;
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 5);
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.016L, 5);
       for (const auto &[radius, value] : tmp_distr) {
         distr[radius] += value;
       }
@@ -91,27 +93,34 @@ int main() {
       particle_t &part = view.box.particles[p_idx];
 
       double3 const new_pos =
-          view.try_random_particle_disp(p_idx, unif_r, re, 0.5);
+          view.try_random_particle_disp(p_idx, unif_r, re, MAX_STEP);
 
       if (new_pos.x == -1) {
         continue;
       }
 
+      // double const old_energy = view.particle_energy_square_well(part, 0.2,
+      // 1);
       double const old_energy = view.particle_energy_square_well(part, 0.2, 1);
       // double const old_energy =
       // view.particle_energy_square_well_device(part, 1.5);
 
       part.pos = new_pos;
+      // double new_energy = view.particle_energy_square_well(part, 0.2, 1);
       double new_energy = view.particle_energy_square_well(part, 0.2, 1);
       // double const new_energy =
       //     view.particle_energy_square_well_device(part, 1.5);
       part.pos = old_pos;
 
-      double prob = exp((old_energy - new_energy) / TEMPERATURE);
-      if (new_energy < old_energy && unif_r(re) <= prob) {
+      // double prob = exp((old_energy - new_energy) / TEMPERATURE);
+      // if (new_energy > old_energy && unif_r(re) <= prob) {
+      //   continue;
+      // }
+      double prob = exp((new_energy - old_energy) / TEMPERATURE);
+      if (unif_r(re) >= prob) {
         continue;
       }
-      init_energy += old_energy - new_energy;
+      init_energy += new_energy - old_energy;
       view.remove_particle(view.box.particles[p_idx]);
       part.pos = new_pos;
       view.box.update_particle(p_idx);
