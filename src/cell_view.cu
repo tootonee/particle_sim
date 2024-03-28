@@ -424,3 +424,46 @@ double cell_view_t::particle_energy_square_well_device(particle_t const &p,
   }
   return result;
 }
+
+void cell_view_::try_random_particle_move(rng_gen &unif_r, std::mt19937 &re){
+      size_t const p_idx =
+          static_cast<size_t>(unif_r(re) * box.particle_count) %
+          box.particle_count;
+      // size_t const p_idx = i;
+      double3 const old_pos = box.particles[p_idx].pos;
+      particle_t &part = box.particles[p_idx];
+
+      double3 const new_pos =
+          try_random_particle_disp(p_idx, unif_r, re, MAX_STEP);
+
+      if (new_pos.x == -1) {
+        continue;
+      }
+
+      // double const old_energy = view.particle_energy_square_well(part, 0.2,
+      // 1);
+      double const old_energy = particle_energy_square_well(part, 0.2, 1);
+      // double const old_energy =
+      // view.particle_energy_square_well_device(part, 1.5);
+
+      part.pos = new_pos;
+      // double new_energy = view.particle_energy_square_well(part, 0.2, 1);
+      double new_energy = particle_energy_square_well(part, 0.2, 1);
+      // double const new_energy =
+      //     view.particle_energy_square_well_device(part, 1.5);
+      part.pos = old_pos;
+
+      // double prob = exp((old_energy - new_energy) / TEMPERATURE);
+      // if (new_energy > old_energy && unif_r(re) <= prob) {
+      //   continue;
+      // }
+      double prob = exp((new_energy - old_energy) / TEMPERATURE);
+      if (unif_r(re) >= prob) {
+        continue;
+      }
+      init_energy += new_energy - old_energy;
+      remove_particle(part);
+      part.pos = new_pos;
+      box.update_particle(p_idx);
+      add_particle(part);
+}

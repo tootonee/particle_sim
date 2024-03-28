@@ -66,6 +66,7 @@ struct __align__(32) cell_view_t {
   double particles_in_range(const size_t idx, const double r1, const double r2)
       const;
   double total_energy(double const sigma = 2.0F, double const val = 2.0F);
+  void try_random_particle_move(rng_gen &unif_r, std::mt19937 &re);
 
   // inline constexpr __host__ __device__ size_t get_cell_idx(
   //     particle_t const &p) {
