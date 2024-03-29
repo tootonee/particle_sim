@@ -88,43 +88,11 @@ int main() {
       size_t const p_idx =
           static_cast<size_t>(unif_r(re) * view.box.particle_count) %
           view.box.particle_count;
-      // size_t const p_idx = i;
-      double3 const old_pos = view.box.particles[p_idx].pos;
-      particle_t &part = view.box.particles[p_idx];
-
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, unif_r, re, MAX_STEP);
-
-      if (new_pos.x == -1) {
-        continue;
-      }
-
-      // double const old_energy = view.particle_energy_square_well(part, 0.2,
-      // 1);
-      double const old_energy = view.particle_energy_square_well(part, 0.2, 1);
-      // double const old_energy =
-      // view.particle_energy_square_well_device(part, 1.5);
-
-      part.pos = new_pos;
-      // double new_energy = view.particle_energy_square_well(part, 0.2, 1);
-      double new_energy = view.particle_energy_square_well(part, 0.2, 1);
-      // double const new_energy =
-      //     view.particle_energy_square_well_device(part, 1.5);
-      part.pos = old_pos;
-
-      // double prob = exp((old_energy - new_energy) / TEMPERATURE);
-      // if (new_energy > old_energy && unif_r(re) <= prob) {
-      //   continue;
-      // }
-      double prob = exp((new_energy - old_energy) / TEMPERATURE);
-      if (unif_r(re) >= prob) {
-        continue;
-      }
-      init_energy += new_energy - old_energy;
-      view.remove_particle(view.box.particles[p_idx]);
-      part.pos = new_pos;
-      view.box.update_particle(p_idx);
-      view.add_particle(view.box.particles[p_idx]);
+      double const prob_rand = unif_r(re);
+      init_energy +=
+          view.try_move_particle(p_idx, new_pos, prob_rand, TEMPERATURE);
     }
     energies.push_back(init_energy);
   }

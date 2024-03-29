@@ -424,3 +424,40 @@ double cell_view_t::particle_energy_square_well_device(particle_t const &p,
   }
   return result;
 }
+
+double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
+                                      double prob_r, double temp) {
+  if (new_pos.x == -1) {
+    return 0;
+  }
+
+  double3 const old_pos = box.particles[p_idx].pos;
+  particle_t &part = box.particles[p_idx];
+
+  // double const old_energy = particle_energy_square_well(part, 0.2,
+  // 1);
+  double const old_energy = particle_energy_square_well(part, 0.2, 1);
+  // double const old_energy =
+  // particle_energy_square_well_device(part, 1.5);
+
+  part.pos = new_pos;
+  // double new_energy = particle_energy_square_well(part, 0.2, 1);
+  double new_energy = particle_energy_square_well(part, 0.2, 1);
+  // double const new_energy =
+  //     particle_energy_square_well_device(part, 1.5);
+  part.pos = old_pos;
+
+  // double prob = exp((old_energy - new_energy) / TEMPERATURE);
+  // if (new_energy > old_energy && unif_r(re) <= prob) {
+  //   continue;
+  // }
+  double prob = exp((new_energy - old_energy) / temp);
+  if (prob_r >= prob) {
+    return 0;
+  }
+  remove_particle(box.particles[p_idx]);
+  part.pos = new_pos;
+  box.update_particle(p_idx);
+  add_particle(box.particles[p_idx]);
+  return new_energy - old_energy;
+}

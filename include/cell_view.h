@@ -60,24 +60,17 @@ struct __align__(32) cell_view_t {
   void remove_particle_from_box(particle_t const &p);
   bool particle_intersects(particle_t const &p);
   double particle_energy_square_well(
-      particle_t const &p, double const sigma = 1.0f, double const val = 0.2f);
+      particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);
+  double particle_energy_patch(particle_t const &p);
   double particle_energy_square_well_device(
-      particle_t const &p, double const sigma = 2.0f, double const val = 1.0f);
+      particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);
   double particles_in_range(const size_t idx, const double r1, const double r2)
       const;
-  double total_energy(double const sigma = 2.0F, double const val = 2.0F);
+  double total_energy(double const sigma = 0.2F, double const val = 1.0F);
 
-  // inline constexpr __host__ __device__ size_t get_cell_idx(
-  //     particle_t const &p) {
-  //   uint3 const particle_idx = {
-  //       .x = (uint32_t)(p.pos.x / cell_size.x),
-  //       .y = (uint32_t)(p.pos.y / cell_size.y),
-  //       .z = (uint32_t)(p.pos.z / cell_size.z),
-  //   };
-  //   return particle_idx.z * cells_per_axis * cells_per_axis +
-  //          particle_idx.y * cells_per_axis + particle_idx.x;
-  // }
-  //
+  double try_move_particle(size_t const p_idx, double3 const new_pos,
+                           double prob_r, double temp);
+
   inline constexpr __host__ __device__ size_t get_cell_idx(double3 const &p) {
     uint3 const particle_idx = {
         .x = (uint32_t)(p.x / cell_size.x),

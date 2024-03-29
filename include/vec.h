@@ -30,6 +30,25 @@ __host__ __device__ constexpr inline double dot(double3 const &lhs,
   return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
 }
 
+__host__ __device__ constexpr inline double3 normalize(double3 const &val) {
+  double len = distance(val, {0, 0, 0});
+  return {
+      .x = val.x / len,
+      .y = val.y / len,
+      .z = val.z / len,
+  };
+}
+
+__host__ __device__ constexpr inline double4 normalize(double4 const &val) {
+  double len = distance(val, {0, 0, 0, 0});
+  return {
+      .x = val.x / len,
+      .y = val.y / len,
+      .z = val.z / len,
+      .w = val.w / len,
+  };
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /// Quaternion operations
 ////////////////////////////////////////////////////////////////////////////////

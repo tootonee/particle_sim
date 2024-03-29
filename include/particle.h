@@ -23,6 +23,7 @@ struct __align__(32) particle_t {
   void random_particle_pos(double3 dimensions);
   void random_particle_pos(rng_gen & rng_x, rng_gen & rng_y, rng_gen & rng_z,
                            std::mt19937 & re);
+  void random_particle_orient(rng_gen & rng_r, std::mt19937 & re, int axis = 0);
 
   __host__ __device__ inline constexpr bool intersects(
       double3 const other_pos, double const other_radius) {
