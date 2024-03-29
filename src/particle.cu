@@ -16,15 +16,14 @@ void particle_t::random_particle_pos(double3 dimensions) {
   pos.z = unif_z(re);
 };
 
-void particle_t::random_particle_orient(rng_gen &rng_r, std::mt19937 &re,
-                                        int axis) {
-  double angle = rng_r(re);
+double4 particle_t::random_particle_orient(double const angle, int axis) {
   double4 rotation{
       .x = cos(angle / 2),
       .y = 0,
       .z = 0,
       .w = 0,
   };
+
   switch (axis) {
   case 2:
     rotation.w = sin(angle / 2);
@@ -36,17 +35,61 @@ void particle_t::random_particle_orient(rng_gen &rng_r, std::mt19937 &re,
     rotation.x = sin(angle / 2);
     break;
   };
-  double4 conj = {
-      .x = rotation.x,
-      .y = -rotation.y,
-      .z = -rotation.z,
-      .w = -rotation.w,
-  };
+
+  return rotation;
 };
+
+void particle_t::rotate(double4 const rot) {
+  double4 conj = {
+      .x = rot.x,
+      .y = -rot.y,
+      .z = -rot.z,
+      .w = -rot.w,
+  };
+
+  orient = rot * (orient * conj);
+  for (size_t i = 0; i < patch_count; i++) {
+    patches[i].pos = rot * (patches[i].pos * conj);
+  }
+}
 
 void particle_t::random_particle_pos(rng_gen &rng_x, rng_gen &rng_y,
                                      rng_gen &rng_z, std::mt19937 &re) {
   pos.x = rng_x(re);
   pos.y = rng_y(re);
   pos.z = rng_z(re);
+}
+
+__host__ __device__ double particle_t::interact(particle_t const &rhs,
+                                                double const cosmax,
+                                                double const epsilon) {
+  double3 dist = normalize((double3){
+      .x = rhs.pos.x - pos.x,
+      .y = rhs.pos.y - pos.y,
+      .z = rhs.pos.z - pos.z,
+  });
+  double result = 0;
+
+  for (size_t i = 0; i < patch_count; i++) {
+    patch_t const &p = patches[i];
+    double3 p_pos = {p.pos.y, p.pos.z, p.pos.w};
+    double p_cos = dot(p_pos, dist);
+
+    if (p_cos < cosmax) {
+      continue;
+    }
+
+    for (size_t j = 0; j < rhs.patch_count; j++) {
+      patch_t const &q = rhs.patches[j];
+      double3 q_pos = {q.pos.y, q.pos.z, q.pos.w};
+      double q_cos = -dot(q_pos, dist);
+      if (q_cos < cosmax) {
+        continue;
+      }
+
+      result += epsilon;
+    }
+  }
+
+  return result;
 }
