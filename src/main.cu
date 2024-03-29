@@ -17,8 +17,9 @@ constexpr size_t PARTICLE_COUNT = 200;
 constexpr size_t MOVES_PER_ITER = 200;
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 10;
-constexpr size_t ITERATIONS_PER_GRF_EXPORT = 500;
-constexpr double TEMPERATURE = 0.88;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 200;
+// constexpr double TEMPERATURE = 0.88;
+constexpr double TEMPERATURE = 2;
 constexpr double MAX_STEP = 0.2886751346L;
 // constexpr double MAX_STEP = 0.5;
 
@@ -57,6 +58,22 @@ int main() {
 
   for (size_t i = 1; i <= PARTICLE_COUNT; i++) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
+    view.box.particles[i - 1].add_patch({
+        .radius = 0.05,
+        .pos = {1, 1, 0, 0},
+    });
+    view.box.particles[i - 1].add_patch({
+        .radius = 0.05,
+        .pos = {1, -1, 0, 0},
+    });
+    view.box.particles[i - 1].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, 0, 1},
+    });
+    view.box.particles[i - 1].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, 0, -1},
+    });
   }
 
   std::uniform_real_distribution<double> unif_r(0, 1);
@@ -70,7 +87,7 @@ int main() {
   std::vector<double> energies;
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.016L, 5);
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 5);
       for (const auto &[radius, value] : tmp_distr) {
         distr[radius] += value;
       }
@@ -88,8 +105,9 @@ int main() {
       size_t const p_idx =
           static_cast<size_t>(unif_r(re) * view.box.particle_count) %
           view.box.particle_count;
+      double const offset = unif_r(re) - 0.5;
       double3 const new_pos =
-          view.try_random_particle_disp(p_idx, unif_r, re, MAX_STEP);
+          view.try_random_particle_disp(p_idx, offset, MAX_STEP);
       double const prob_rand = unif_r(re);
       init_energy +=
           view.try_move_particle(p_idx, new_pos, prob_rand, TEMPERATURE);

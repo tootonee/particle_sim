@@ -17,7 +17,7 @@ struct __align__(32) particle_t {
   double3 pos{0, 0, 0};
   double4 orient{1, 1, 0, 0};
   patch_t patches[DEFAULT_CAPACITY];
-  size_t patch_count{DEFAULT_CAPACITY};
+  size_t patch_count{0};
   size_t idx{};
 
   void random_particle_pos(double3 dimensions);
@@ -27,7 +27,7 @@ struct __align__(32) particle_t {
   void rotate(double4 const rot);
   __host__ __device__ double interact(particle_t const &rhs,
                                       double const cosmax = 0.2,
-                                      double const epsilon = 0.2);
+                                      double const epsilon = 0.2) const;
 
   __host__ __device__ inline constexpr bool intersects(
       double3 const other_pos, double const other_radius) {
@@ -43,6 +43,8 @@ struct __align__(32) particle_t {
     double const diameter = radius + rhs.radius;
     return distance(pos, rhs.pos) < diameter;
   }
+
+  void add_patch(patch_t const &p);
 };
 
 __host__ __device__ constexpr inline bool operator==(particle_t const &lhs,

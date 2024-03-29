@@ -50,24 +50,27 @@ struct __align__(32) cell_view_t {
   void add_particle_to_box(particle_t const &p);
   bool add_particle_to_box(double radius, rng_gen &rng_x, rng_gen &rng_y,
                            rng_gen &rng_z, std::mt19937 &re);
-  double3 try_random_particle_disp(size_t const particle_idx, rng_gen &rng_x,
-                                   std::mt19937 &re, double const scale = 2.0F);
   void add_particle_random_pos(double radius, rng_gen &rng_x, rng_gen &rng_y,
                                rng_gen &rng_z, std::mt19937 &re);
+  double3 try_random_particle_disp(size_t const particle_idx, rng_gen &rng_x,
+                                   std::mt19937 &re, double const scale = 2.0F);
+  __host__ __device__ double3 try_random_particle_disp(
+      size_t const particle_idx, double const offset,
+      double const scale = 2.0F);
 
   bool add_particle(particle_t const &p);
   void remove_particle(particle_t const &p);
   void remove_particle_from_box(particle_t const &p);
-  bool particle_intersects(particle_t const &p);
   double particle_energy_square_well(
       particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);
-  double particle_energy_patch(particle_t const &p);
+  double particle_energy_patch(particle_t const &p, double const cosmax = 0.2,
+                               double const sigma = 0.2,
+                               double const epsilon = 0.2);
   double particle_energy_square_well_device(
       particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);
   double particles_in_range(const size_t idx, const double r1, const double r2)
       const;
   double total_energy(double const sigma = 0.2F, double const val = 1.0F);
-
   double try_move_particle(size_t const p_idx, double3 const new_pos,
                            double prob_r, double temp);
 
@@ -80,6 +83,8 @@ struct __align__(32) cell_view_t {
     return particle_idx.x * cells_per_axis * cells_per_axis +
            particle_idx.y * cells_per_axis + particle_idx.z;
   }
+
+  __host__ __device__ bool particle_intersects(particle_t const &p);
 };
 __global__ void energy_square_well(cell_view_t const view, particle_t const &p,
                                    double *output, int3 strides,

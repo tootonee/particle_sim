@@ -62,17 +62,21 @@ void particle_t::random_particle_pos(rng_gen &rng_x, rng_gen &rng_y,
 
 __host__ __device__ double particle_t::interact(particle_t const &rhs,
                                                 double const cosmax,
-                                                double const epsilon) {
+                                                double const epsilon) const {
   double3 dist = normalize((double3){
-      .x = rhs.pos.x - pos.x,
-      .y = rhs.pos.y - pos.y,
-      .z = rhs.pos.z - pos.z,
+      .x = pos.x - rhs.pos.x,
+      .y = pos.x - rhs.pos.y,
+      .z = pos.x - rhs.pos.z,
   });
   double result = 0;
 
   for (size_t i = 0; i < patch_count; i++) {
     patch_t const &p = patches[i];
-    double3 p_pos = {p.pos.y, p.pos.z, p.pos.w};
+    double3 p_pos = normalize((double3){
+        p.pos.y,
+        p.pos.z,
+        p.pos.w,
+    });
     double p_cos = dot(p_pos, dist);
 
     if (p_cos < cosmax) {
@@ -81,15 +85,27 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
 
     for (size_t j = 0; j < rhs.patch_count; j++) {
       patch_t const &q = rhs.patches[j];
-      double3 q_pos = {q.pos.y, q.pos.z, q.pos.w};
+      double3 q_pos = normalize((double3){
+          q.pos.y,
+          q.pos.z,
+          q.pos.w,
+      });
       double q_cos = -dot(q_pos, dist);
       if (q_cos < cosmax) {
         continue;
       }
 
-      result += epsilon;
+      result -= epsilon;
     }
   }
 
   return result;
+}
+
+void particle_t::add_patch(patch_t const &p) {
+  if (patch_count >= DEFAULT_CAPACITY) {
+    return;
+  }
+  patches[patch_count] = p;
+  patch_count++;
 }
