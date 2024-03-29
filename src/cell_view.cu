@@ -491,19 +491,16 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
   double3 const old_pos = box.particles[p_idx].pos;
   particle_t &part = box.particles[p_idx];
 
-  // double const old_energy = particle_energy_square_well(part, 0.2,
-  // 1);
   double const old_energy = particle_energy_square_well(part, 0.2, 1) +
-                            particle_energy_patch(part, 0.95, 0.2, 4);
+                            particle_energy_patch(part, 0.99, 0.1, 25);
   // double const old_energy =
   // particle_energy_square_well_device(part, 1.5);
   // std::cout << "Old patch energy = "
   //           << particle_energy_patch(part, 0.1, 0.3, 0.2) << std::endl;
 
   part.pos = new_pos;
-  // double new_energy = particle_energy_square_well(part, 0.2, 1);
   double new_energy = particle_energy_square_well(part, 0.2, 1) +
-                      particle_energy_patch(part, 0.95, 0.1, 4);
+                      particle_energy_patch(part, 0.99, 0.1, 25);
   // double const new_energy =
   //     particle_energy_square_well_device(part, 1.5);
   part.pos = old_pos;
