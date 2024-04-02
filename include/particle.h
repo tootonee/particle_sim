@@ -23,8 +23,8 @@ struct __align__(32) particle_t {
   void random_particle_pos(double3 dimensions);
   void random_particle_pos(rng_gen & rng_x, rng_gen & rng_y, rng_gen & rng_z,
                            std::mt19937 & re);
-  double4 random_particle_orient(double const angle, int axis = 0);
-  void rotate(double4 const rot);
+  static double4 random_particle_orient(double const angle, int axis = 0);
+  void rotate(double4 rot);
   __host__ __device__ double interact(particle_t const &rhs,
                                       double const cosmax = 0.2,
                                       double const epsilon = 0.2) const;

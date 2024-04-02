@@ -342,7 +342,7 @@ double cell_view_t::total_energy(double const sigma, double const val) {
   double total = 0.0F;
   for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
     total += particle_energy_square_well(box.particles[p_idx], sigma, val);
-    total += particle_energy_patch(box.particles[p_idx], 0.8, 0.2, 0.2);
+    total += particle_energy_patch(box.particles[p_idx], 0.92, 0.3, -0.5);
   }
   return total * 0.5L;
 }
@@ -481,9 +481,9 @@ double cell_view_t::particle_energy_square_well_device(particle_t const &p,
   return result;
 }
 
-#include <iostream>
 double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
-                                      double prob_r, double temp) {
+                                      double4 const rotation, double prob_r,
+                                      double temp) {
   if (new_pos.x == -1) {
     return 0;
   }
@@ -491,29 +491,24 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
   double3 const old_pos = box.particles[p_idx].pos;
   particle_t &part = box.particles[p_idx];
 
+  // double const old_energy = particle_energy_square_well(part, 0.2, -1);
   double const old_energy = particle_energy_square_well(part, 0.2, 1) +
-                            particle_energy_patch(part, 0.99, 0.1, 25);
-  // double const old_energy =
-  // particle_energy_square_well_device(part, 1.5);
-  // std::cout << "Old patch energy = "
-  //           << particle_energy_patch(part, 0.1, 0.3, 0.2) << std::endl;
+                            particle_energy_patch(part, 0.98, 0.1, -2);
 
   part.pos = new_pos;
+  part.rotate(rotation);
+  // double new_energy = particle_energy_square_well(part, 0.2, -1);
   double new_energy = particle_energy_square_well(part, 0.2, 1) +
-                      particle_energy_patch(part, 0.99, 0.1, 25);
-  // double const new_energy =
-  //     particle_energy_square_well_device(part, 1.5);
+                      particle_energy_patch(part, 0.98, 0.1, -2);
   part.pos = old_pos;
-  //
-  // std::cout << "New patch energy = "
-  //           << particle_energy_patch(part, 0.1, 0.3, 0.2) << std::endl;
-
-  // double prob = exp((old_energy - new_energy) / TEMPERATURE);
-  // if (new_energy > old_energy && unif_r(re) <= prob) {
-  //   continue;
-  // }
   double prob = exp(-(new_energy - old_energy) / temp);
   if (prob_r >= prob) {
+    part.rotate({
+        .x = rotation.x,
+        .y = -rotation.y,
+        .z = -rotation.z,
+        .w = -rotation.w,
+    });
     return 0;
   }
   remove_particle(box.particles[p_idx]);
@@ -574,7 +569,7 @@ double cell_view_t::particle_energy_patch(particle_t const &p,
           if (part.idx == p.idx) {
             continue;
           }
-          if (distance(p.pos, part.pos) >= dist) {
+          if (distance(part.pos, p.pos) >= dist) {
             continue;
           }
 

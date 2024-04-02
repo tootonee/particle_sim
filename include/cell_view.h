@@ -63,7 +63,7 @@ struct __align__(32) cell_view_t {
   void remove_particle_from_box(particle_t const &p);
   double particle_energy_square_well(
       particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);
-  double particle_energy_patch(particle_t const &p, double const cosmax = 0.2,
+  double particle_energy_patch(particle_t const &p, double const cosmax = 0.96,
                                double const sigma = 0.2,
                                double const epsilon = 0.2);
   double particle_energy_square_well_device(
@@ -72,7 +72,7 @@ struct __align__(32) cell_view_t {
       const;
   double total_energy(double const sigma = 0.2F, double const val = 1.0F);
   double try_move_particle(size_t const p_idx, double3 const new_pos,
-                           double prob_r, double temp);
+                           double4 const rotation, double prob_r, double temp);
 
   inline constexpr __host__ __device__ size_t get_cell_idx(double3 const &p) {
     uint3 const particle_idx = {

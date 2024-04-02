@@ -13,15 +13,16 @@
 #include <sstream>
 #include <vector>
 
-constexpr size_t PARTICLE_COUNT = 200;
-constexpr size_t MOVES_PER_ITER = 200;
+constexpr size_t PARTICLE_COUNT = 600;
+constexpr size_t MOVES_PER_ITER = 600;
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 10;
-constexpr size_t ITERATIONS_PER_GRF_EXPORT = 200;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 2500;
 // constexpr double TEMPERATURE = 0.88;
-constexpr double TEMPERATURE = 1;
-constexpr double MAX_STEP = 0.2886751346L;
-// constexpr double MAX_STEP = 0.5;
+constexpr double TEMPERATURE = 3;
+// constexpr double MAX_STEP = 0.15;
+// constexpr double MAX_STEP = 0.2886751346L;
+constexpr double MAX_STEP = 0.5;
 
 std::map<double, double> do_distr(cell_view_t const &view,
                                   double const rho = 0.5L,
@@ -56,29 +57,31 @@ int main() {
   std::uniform_real_distribution<double> unif_z(0, 10);
   cell_view_t view({10, 10, 10}, 10);
 
-  for (size_t i = 1; i <= PARTICLE_COUNT; i++) {
+  // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
+  for (size_t i = 0; i < PARTICLE_COUNT; i++) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
-    view.box.particles[i - 1].add_patch({
+    // view.add_particle(view.box.particles[i]);
+    view.box.particles[i].add_patch({
         .radius = 0.05,
         .pos = {1, 1, 0, 0},
     });
-    view.box.particles[i - 1].add_patch({
+    view.box.particles[i].add_patch({
         .radius = 0.05,
         .pos = {1, -1, 0, 0},
     });
-    view.box.particles[i - 1].add_patch({
+    view.box.particles[i].add_patch({
         .radius = 0.05,
         .pos = {1, 0, 0, 1},
     });
-    view.box.particles[i - 1].add_patch({
+    view.box.particles[i].add_patch({
         .radius = 0.05,
         .pos = {1, 0, 0, -1},
     });
-    view.box.particles[i - 1].add_patch({
+    view.box.particles[i].add_patch({
         .radius = 0.05,
         .pos = {1, 0, 1, 0},
     });
-    view.box.particles[i - 1].add_patch({
+    view.box.particles[i].add_patch({
         .radius = 0.05,
         .pos = {1, 0, -1, 0},
     });
@@ -90,12 +93,12 @@ int main() {
       view.box.particle_count /
       (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
   std::map<double, double> distr{};
-  double init_energy = view.total_energy(0.2, 1);
+  double init_energy = view.total_energy(0.5, 0.25);
 
   std::vector<double> energies;
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 5);
       for (const auto &[radius, value] : tmp_distr) {
         distr[radius] += value;
       }
@@ -117,8 +120,11 @@ int main() {
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, offset, MAX_STEP);
       double const prob_rand = unif_r(re);
-      init_energy +=
-          view.try_move_particle(p_idx, new_pos, prob_rand, TEMPERATURE);
+      double angle = unif_r(re) * M_PI;
+      double4 rotation =
+          particle_t::random_particle_orient(angle, (i + iters) % 3);
+      init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
+                                            TEMPERATURE);
     }
     energies.push_back(init_energy);
   }

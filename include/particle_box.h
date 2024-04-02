@@ -29,7 +29,9 @@ struct __align__(32) particle_box_t {
   void swap_particles(size_t const fst, size_t const snd);
 
   inline void free_particles() const {
-    cudaFree(particles_device);
+    if (particles_device != nullptr) {
+      cudaFree(particles_device);
+    }
     delete[] particles;
   }
 

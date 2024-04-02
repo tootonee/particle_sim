@@ -98,7 +98,7 @@ void particle_box_t::swap_particles(size_t const fst, size_t const snd) {
 
 void particle_box_t::make_box_uniform_particles_host(
     double3 const dims, double const radius, size_t const count_per_axis) {
-  free_particles();
+  // free_particles();
   dimensions = dims;
   capacity = count_per_axis * count_per_axis * count_per_axis;
   init(capacity);

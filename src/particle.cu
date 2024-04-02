@@ -68,7 +68,6 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
       .y = pos.x - rhs.pos.y,
       .z = pos.x - rhs.pos.z,
   });
-  double result = 0;
 
   for (size_t i = 0; i < patch_count; i++) {
     patch_t const &p = patches[i];
@@ -95,11 +94,11 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
         continue;
       }
 
-      result -= epsilon;
+      return epsilon;
     }
   }
 
-  return result;
+  return 0;
 }
 
 void particle_t::add_patch(patch_t const &p) {
