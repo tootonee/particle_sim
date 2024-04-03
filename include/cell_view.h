@@ -48,12 +48,13 @@ struct __align__(32) cell_view_t {
   void free_cells();
   void realloc(size_t cap);
   void add_particle_to_box(particle_t const &p);
-  bool add_particle_to_box(double radius, rng_gen &rng_x, rng_gen &rng_y,
-                           rng_gen &rng_z, std::mt19937 &re);
+  // bool add_particle_to_box(double radius, rng_gen &rng_x, rng_gen &rng_y,
+  //                          rng_gen &rng_z, std::mt19937 &re);
   void add_particle_random_pos(double radius, rng_gen &rng_x, rng_gen &rng_y,
                                rng_gen &rng_z, std::mt19937 &re);
-  double3 try_random_particle_disp(size_t const particle_idx, rng_gen &rng_x,
-                                   std::mt19937 &re, double const scale = 2.0F);
+  // double3 try_random_particle_disp(size_t const particle_idx, rng_gen &rng_x,
+  //                                  std::mt19937 &re, double const scale
+  //                                  = 2.0F);
   __host__ __device__ double3 try_random_particle_disp(
       size_t const particle_idx, double const offset,
       double const scale = 2.0F);

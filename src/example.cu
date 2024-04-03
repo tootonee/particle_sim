@@ -1,407 +1,134 @@
-/*
- * This program uses the device CURAND API to calculate what
- * proportion of pseudo-random ints have low bit set.
- * It then generates uniform results to calculate how many
- * are greater than .5.
- * It then generates  normal results to calculate how many
- * are within one standard deviation of the mean.
- */
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <cuda_runtime.h>
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include <curand.h>
 #include <curand_kernel.h>
+#include <map>
+#include <stdint.h>
 
-#define CUDA_CALL(x)                                                           \
-  do {                                                                         \
-    if ((x) != cudaSuccess) {                                                  \
-      printf("Error at %s:%d\n", __FILE__, __LINE__);                          \
-      return EXIT_FAILURE;                                                     \
-    }                                                                          \
-  } while (0)
+#include <stdio.h>
 
-__global__ void setup_kernel(curandState *state) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  /* Each thread gets same seed, a different sequence
-     number, no offset */
-  curand_init(1234, id, 0, &state[id]);
+void ShannonEntropy(int *data, int N, int &min, int &max, float &entropy);
+
+__global__ void setup_kernel(curandState *state, uint64_t seed) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  curand_init(seed, tid, 0, &state[tid]);
 }
 
-__global__ void setup_kernel(curandStatePhilox4_32_10_t *state) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  /* Each thread gets same seed, a different sequence
-     number, no offset */
-  curand_init(1234, id, 0, &state[id]);
+__global__ void generate_randoms(curandState *globalState, float *randoms) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  curandState localState = globalState[tid];
+  randoms[tid * 2 + 0] = curand_uniform(&localState);
+  randoms[tid * 2 + 1] = curand_uniform(&localState);
 }
 
-__global__ void setup_kernel(curandStateMRG32k3a *state) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  /* Each thread gets same seed, a different sequence
-     number, no offset */
-  curand_init(0, id, 0, &state[id]);
+int main() {
+  printf("\nTwoStepRandom\n");
+  int threads = 256;
+  int blocks = 5120;
+  int threadCount = blocks * threads;
+  int N = blocks * threads * 2;
+
+  curandState *dev_curand_states;
+  float *randomValues;
+  float *host_randomValues;
+  int *host_int;
+
+  float time_elapsed_setup;
+  float time_elapsed;
+  cudaEvent_t startTime;
+  cudaEvent_t stopTime;
+  cudaStream_t computeStream;
+
+  // Init host memory
+  host_randomValues = (float *)malloc(N * sizeof(float));
+  host_int = (int *)malloc(N * sizeof(float));
+
+  // Init device memory
+  cudaMalloc(&dev_curand_states, threadCount * sizeof(curandState));
+  cudaMalloc(&randomValues, N * sizeof(float));
+
+  cudaEventCreate(&startTime);
+  cudaEventCreate(&stopTime);
+  cudaStreamCreateWithFlags(&computeStream, cudaStreamNonBlocking);
+
+  //  ----- Setup seeds -----
+  cudaEventRecord(startTime, computeStream);
+
+  setup_kernel<<<blocks, threads, 0, computeStream>>>(dev_curand_states,
+                                                      time(NULL));
+
+  cudaEventRecord(stopTime, computeStream);
+  cudaEventSynchronize(stopTime);
+  cudaEventElapsedTime(&time_elapsed_setup, startTime, stopTime);
+
+  // ----- Generate random numbers -----
+  cudaEventRecord(startTime, computeStream);
+
+  // Needs both read and write from global memory
+  generate_randoms<<<blocks, threads, 0, computeStream>>>(dev_curand_states,
+                                                          randomValues);
+
+  cudaEventRecord(stopTime, computeStream);
+  cudaEventSynchronize(stopTime);
+
+  cudaEventElapsedTime(&time_elapsed, startTime, stopTime);
+
+  // ----- Concluding Steps -----
+
+  cudaMemcpy(host_randomValues, randomValues, N * sizeof(float),
+             cudaMemcpyDeviceToHost);
+
+  // Convert floats to ints for the shannnon entropy function
+  for (int i = 0; i < N; ++i) {
+    // Print a few values out
+    if (i < 8) {
+      printf("%.3f, ", host_randomValues[i]);
+    }
+
+    host_int[i] = (int)(host_randomValues[i] * 10000.0f);
+  }
+
+  printf("\n");
+  printf("Elapsed time setup    %9.3f\n", time_elapsed_setup);
+  printf("Elapsed time generate %9.3f\n", time_elapsed);
+
+  int min, max;
+  float entropy;
+  ShannonEntropy(host_int, N, min, max, entropy);
+  printf("Shannon Entropy <%6.3f>\n", entropy);
+
+  cudaFree(dev_curand_states);
+  cudaFree(randomValues);
+  free(host_randomValues);
+  free(host_int);
+
+  return 0;
 }
 
-__global__ void generate_kernel(curandState *state, int n,
-                                unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  int count = 0;
-  unsigned int x;
-  /* Copy state to local memory for efficiency */
-  curandState localState = state[id];
-  /* Generate pseudo-random unsigned ints */
-  for (int i = 0; i < n; i++) {
-    x = curand(&localState);
-    /* Check if low bit set */
-    if (x & 1) {
-      count++;
+void ShannonEntropy(int *data, int N, int &min, int &max, float &entropy) {
+  entropy = 0; // Init
+  min = UINT_MAX;
+  max = 0;
+
+  std::map<int, long> counts;
+  typename std::map<int, long>::iterator it;
+
+  for (int dataIndex = 0; dataIndex < N; dataIndex++) {
+    int dValue = data[dataIndex];
+    if (dValue < min) {
+      min = dValue;
     }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-__global__ void generate_kernel(curandStatePhilox4_32_10_t *state, int n,
-                                unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  int count = 0;
-  unsigned int x;
-  /* Copy state to local memory for efficiency */
-  curandStatePhilox4_32_10_t localState = state[id];
-  /* Generate pseudo-random unsigned ints */
-  for (int i = 0; i < n; i++) {
-    x = curand(&localState);
-    /* Check if low bit set */
-    if (x & 1) {
-      count++;
+    if (dValue > max) {
+      max = dValue;
     }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-__global__ void generate_uniform_kernel(curandState *state, int n,
-                                        unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int count = 0;
-  float x;
-  /* Copy state to local memory for efficiency */
-  curandState localState = state[id];
-  /* Generate pseudo-random uniforms */
-  for (int i = 0; i < n; i++) {
-    x = curand_uniform(&localState);
-    /* Check if > .5 */
-    if (x > .5) {
-      count++;
-    }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-__global__ void generate_uniform_kernel(curandStatePhilox4_32_10_t *state,
-                                        int n, unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int count = 0;
-  float x;
-  /* Copy state to local memory for efficiency */
-  curandStatePhilox4_32_10_t localState = state[id];
-  /* Generate pseudo-random uniforms */
-  for (int i = 0; i < n; i++) {
-    x = curand_uniform(&localState);
-    /* Check if > .5 */
-    if (x > .5) {
-      count++;
-    }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-__global__ void generate_normal_kernel(curandState *state, int n,
-                                       unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int count = 0;
-  float2 x;
-  /* Copy state to local memory for efficiency */
-  curandState localState = state[id];
-  /* Generate pseudo-random normals */
-  for (int i = 0; i < n / 2; i++) {
-    x = curand_normal2(&localState);
-    /* Check if within one standard deviaton */
-    if ((x.x > -1.0) && (x.x < 1.0)) {
-      count++;
-    }
-    if ((x.y > -1.0) && (x.y < 1.0)) {
-      count++;
-    }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-__global__ void generate_normal_kernel(curandStatePhilox4_32_10_t *state, int n,
-                                       unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int count = 0;
-  float2 x;
-  /* Copy state to local memory for efficiency */
-  curandStatePhilox4_32_10_t localState = state[id];
-  /* Generate pseudo-random normals */
-  for (int i = 0; i < n / 2; i++) {
-    x = curand_normal2(&localState);
-    /* Check if within one standard deviaton */
-    if ((x.x > -1.0) && (x.x < 1.0)) {
-      count++;
-    }
-    if ((x.y > -1.0) && (x.y < 1.0)) {
-      count++;
-    }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-__global__ void generate_kernel(curandStateMRG32k3a *state, int n,
-                                unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int count = 0;
-  unsigned int x;
-  /* Copy state to local memory for efficiency */
-  curandStateMRG32k3a localState = state[id];
-  /* Generate pseudo-random unsigned ints */
-  for (int i = 0; i < n; i++) {
-    x = curand(&localState);
-    /* Check if low bit set */
-    if (x & 1) {
-      count++;
-    }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-__global__ void generate_uniform_kernel(curandStateMRG32k3a *state, int n,
-                                        unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int count = 0;
-  double x;
-  /* Copy state to local memory for efficiency */
-  curandStateMRG32k3a localState = state[id];
-  /* Generate pseudo-random uniforms */
-  for (int i = 0; i < n; i++) {
-    x = curand_uniform_double(&localState);
-    /* Check if > .5 */
-    if (x > .5) {
-      count++;
-    }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-__global__ void generate_normal_kernel(curandStateMRG32k3a *state, int n,
-                                       unsigned int *result) {
-  int id = threadIdx.x + blockIdx.x * blockDim.x;
-  unsigned int count = 0;
-  double2 x;
-  /* Copy state to local memory for efficiency */
-  curandStateMRG32k3a localState = state[id];
-  /* Generate pseudo-random normals */
-  for (int i = 0; i < n / 2; i++) {
-    x = curand_normal2_double(&localState);
-    /* Check if within one standard deviaton */
-    if ((x.x > -1.0) && (x.x < 1.0)) {
-      count++;
-    }
-    if ((x.y > -1.0) && (x.y < 1.0)) {
-      count++;
-    }
-  }
-  /* Copy state back to global memory */
-  state[id] = localState;
-  /* Store results */
-  result[id] += count;
-}
-
-int main(int argc, char *argv[]) {
-  const unsigned int threadsPerBlock = 64;
-  const unsigned int blockCount = 64;
-  const unsigned int totalThreads = threadsPerBlock * blockCount;
-
-  unsigned int i;
-  unsigned int total;
-  curandState *devStates;
-  curandStateMRG32k3a *devMRGStates;
-  curandStatePhilox4_32_10_t *devPHILOXStates;
-  unsigned int *devResults, *hostResults;
-  bool useMRG = 0;
-  bool usePHILOX = 0;
-  int sampleCount = 10000;
-  bool doubleSupported = 0;
-  int device;
-  struct cudaDeviceProp properties;
-
-  /* check for double precision support */
-  CUDA_CALL(cudaGetDevice(&device));
-  CUDA_CALL(cudaGetDeviceProperties(&properties, device));
-  if (properties.major >= 2 ||
-      (properties.major == 1 && properties.minor >= 3)) {
-    doubleSupported = 1;
+    counts[dValue]++;
   }
 
-  /* Check for MRG32k3a option (default is XORWOW) */
-  if (argc >= 2) {
-    if (strcmp(argv[1], "-m") == 0) {
-      useMRG = 1;
-      if (!doubleSupported) {
-        printf("MRG32k3a requires double precision\n");
-        printf("^^^^ test WAIVED due to lack of double precision\n");
-        return EXIT_SUCCESS;
-      }
-    } else if (strcmp(argv[1], "-p") == 0) {
-      usePHILOX = 1;
-    }
-    /* Allow over-ride of sample count */
-    sscanf(argv[argc - 1], "%d", &sampleCount);
+  it = counts.begin();
+  while (it != counts.end()) {
+    float p_x = (float)it->second / N;
+    if (p_x > 0)
+      entropy -= (float)(p_x * log(p_x) / log(2));
+    it++;
   }
-
-  /* Allocate space for results on host */
-  hostResults = (unsigned int *)calloc(totalThreads, sizeof(int));
-
-  /* Allocate space for results on device */
-  CUDA_CALL(
-      cudaMalloc((void **)&devResults, totalThreads * sizeof(unsigned int)));
-
-  /* Set results to 0 */
-  CUDA_CALL(cudaMemset(devResults, 0, totalThreads * sizeof(unsigned int)));
-
-  /* Allocate space for prng states on device */
-  if (useMRG) {
-    CUDA_CALL(cudaMalloc((void **)&devMRGStates,
-                         totalThreads * sizeof(curandStateMRG32k3a)));
-  } else if (usePHILOX) {
-    CUDA_CALL(cudaMalloc((void **)&devPHILOXStates,
-                         totalThreads * sizeof(curandStatePhilox4_32_10_t)));
-  } else {
-    CUDA_CALL(
-        cudaMalloc((void **)&devStates, totalThreads * sizeof(curandState)));
-  }
-
-  /* Setup prng states */
-  if (useMRG) {
-    setup_kernel<<<64, 64>>>(devMRGStates);
-  } else if (usePHILOX) {
-    setup_kernel<<<64, 64>>>(devPHILOXStates);
-  } else {
-    setup_kernel<<<64, 64>>>(devStates);
-  }
-
-  /* Generate and use pseudo-random  */
-  for (i = 0; i < 50; i++) {
-    if (useMRG) {
-      generate_kernel<<<64, 64>>>(devMRGStates, sampleCount, devResults);
-    } else if (usePHILOX) {
-      generate_kernel<<<64, 64>>>(devPHILOXStates, sampleCount, devResults);
-    } else {
-      generate_kernel<<<64, 64>>>(devStates, sampleCount, devResults);
-    }
-  }
-
-  /* Copy device memory to host */
-  CUDA_CALL(cudaMemcpy(hostResults, devResults,
-                       totalThreads * sizeof(unsigned int),
-                       cudaMemcpyDeviceToHost));
-
-  /* Show result */
-  total = 0;
-  for (i = 0; i < totalThreads; i++) {
-    total += hostResults[i];
-  }
-  printf("Fraction with low bit set was %10.13f\n",
-         (float)total / (totalThreads * sampleCount * 50.0f));
-
-  /* Set results to 0 */
-  CUDA_CALL(cudaMemset(devResults, 0, totalThreads * sizeof(unsigned int)));
-
-  /* Generate and use uniform pseudo-random  */
-  for (i = 0; i < 50; i++) {
-    if (useMRG) {
-      generate_uniform_kernel<<<64, 64>>>(devMRGStates, sampleCount,
-                                          devResults);
-    } else if (usePHILOX) {
-      generate_uniform_kernel<<<64, 64>>>(devPHILOXStates, sampleCount,
-                                          devResults);
-    } else {
-      generate_uniform_kernel<<<64, 64>>>(devStates, sampleCount, devResults);
-    }
-  }
-
-  /* Copy device memory to host */
-  CUDA_CALL(cudaMemcpy(hostResults, devResults,
-                       totalThreads * sizeof(unsigned int),
-                       cudaMemcpyDeviceToHost));
-
-  /* Show result */
-  total = 0;
-  for (i = 0; i < totalThreads; i++) {
-    total += hostResults[i];
-  }
-  printf("Fraction of uniforms > 0.5 was %10.13f\n",
-         (float)total / (totalThreads * sampleCount * 50.0f));
-  /* Set results to 0 */
-  CUDA_CALL(cudaMemset(devResults, 0, totalThreads * sizeof(unsigned int)));
-
-  /* Generate and use normal pseudo-random  */
-  for (i = 0; i < 50; i++) {
-    if (useMRG) {
-      generate_normal_kernel<<<64, 64>>>(devMRGStates, sampleCount, devResults);
-    } else if (usePHILOX) {
-      generate_normal_kernel<<<64, 64>>>(devPHILOXStates, sampleCount,
-                                         devResults);
-    } else {
-      generate_normal_kernel<<<64, 64>>>(devStates, sampleCount, devResults);
-    }
-  }
-
-  /* Copy device memory to host */
-  CUDA_CALL(cudaMemcpy(hostResults, devResults,
-                       totalThreads * sizeof(unsigned int),
-                       cudaMemcpyDeviceToHost));
-
-  /* Show result */
-  total = 0;
-  for (i = 0; i < totalThreads; i++) {
-    total += hostResults[i];
-  }
-  printf("Fraction of normals within 1 standard deviation was %10.13f\n",
-         (float)total / (totalThreads * sampleCount * 50.0f));
-
-  /* Cleanup */
-  if (useMRG) {
-    CUDA_CALL(cudaFree(devMRGStates));
-  } else if (usePHILOX) {
-    CUDA_CALL(cudaFree(devPHILOXStates));
-  } else {
-    CUDA_CALL(cudaFree(devStates));
-  }
-  CUDA_CALL(cudaFree(devResults));
-  free(hostResults);
-  printf("^^^^ kernel_example PASSED\n");
-  return EXIT_SUCCESS;
 }

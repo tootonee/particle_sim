@@ -116,62 +116,62 @@ __host__ __device__ double3 cell_view_t::try_random_particle_disp(
   return disp;
 }
 
-double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
-                                              rng_gen &rng, std::mt19937 &re,
-                                              double const scale) {
-  if (particle_idx >= box.particle_count) {
-    return {-1, -1, -1};
-  }
-
-  particle_t const &p_orig = box.particles[particle_idx];
-  const double3 old_pos = p_orig.pos;
-
-  double3 disp = {
-      2 * scale * (rng(re) - 0.5),
-      2 * scale * (rng(re) - 0.5),
-      2 * scale * (rng(re) - 0.5),
-  };
-
-  disp = {
-      p_orig.pos.x + disp.x,
-      p_orig.pos.y + disp.y,
-      p_orig.pos.z + disp.z,
-  };
-
-  if (disp.x < 0) {
-    disp.x += box.dimensions.x;
-  }
-
-  if (disp.y < 0) {
-    disp.y += box.dimensions.y;
-  }
-
-  if (disp.z < 0) {
-    disp.z += box.dimensions.z;
-  }
-
-  if (disp.x >= box.dimensions.x) {
-    disp.x -= box.dimensions.x;
-  }
-
-  if (disp.y >= box.dimensions.y) {
-    disp.y -= box.dimensions.y;
-  }
-
-  if (disp.z >= box.dimensions.z) {
-    disp.z -= box.dimensions.z;
-  }
-
-  box.particles[particle_idx].pos = disp;
-
-  if (particle_intersects(box.particles[particle_idx])) {
-    box.particles[particle_idx].pos = old_pos;
-    return {-1, -1, -1};
-  }
-
-  box.particles[particle_idx].pos = old_pos;
-  return disp;
-}
+// double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
+//                                               rng_gen &rng, std::mt19937 &re,
+//                                               double const scale) {
+//   if (particle_idx >= box.particle_count) {
+//     return {-1, -1, -1};
+//   }
+//
+//   particle_t const &p_orig = box.particles[particle_idx];
+//   const double3 old_pos = p_orig.pos;
+//
+//   double3 disp = {
+//       2 * scale * (rng(re) - 0.5),
+//       2 * scale * (rng(re) - 0.5),
+//       2 * scale * (rng(re) - 0.5),
+//   };
+//
+//   disp = {
+//       p_orig.pos.x + disp.x,
+//       p_orig.pos.y + disp.y,
+//       p_orig.pos.z + disp.z,
+//   };
+//
+//   if (disp.x < 0) {
+//     disp.x += box.dimensions.x;
+//   }
+//
+//   if (disp.y < 0) {
+//     disp.y += box.dimensions.y;
+//   }
+//
+//   if (disp.z < 0) {
+//     disp.z += box.dimensions.z;
+//   }
+//
+//   if (disp.x >= box.dimensions.x) {
+//     disp.x -= box.dimensions.x;
+//   }
+//
+//   if (disp.y >= box.dimensions.y) {
+//     disp.y -= box.dimensions.y;
+//   }
+//
+//   if (disp.z >= box.dimensions.z) {
+//     disp.z -= box.dimensions.z;
+//   }
+//
+//   box.particles[particle_idx].pos = disp;
+//
+//   if (particle_intersects(box.particles[particle_idx])) {
+//     box.particles[particle_idx].pos = old_pos;
+//     return {-1, -1, -1};
+//   }
+//
+//   box.particles[particle_idx].pos = old_pos;
+//   return disp;
+// }
 
 void cell_view_t::remove_particle(particle_t const &p) {
   size_t cell_idx = get_cell_idx(p.pos);
@@ -342,7 +342,7 @@ double cell_view_t::total_energy(double const sigma, double const val) {
   double total = 0.0F;
   for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
     total += particle_energy_square_well(box.particles[p_idx], sigma, val);
-    total += particle_energy_patch(box.particles[p_idx], 0.92, 0.3, -0.5);
+    // total += particle_energy_patch(box.particles[p_idx], 0.92, 0.3, -0.5);
   }
   return total * 0.5L;
 }
@@ -438,9 +438,6 @@ double cell_view_t::particle_energy_square_well_device(particle_t const &p,
   const size_t thread_count = coeff_val.x * coeff_val.y * coeff_val.z * 8;
   energy_square_well<<<1, thread_count>>>(*this, p, strides, coeff_val, sigma,
                                           val);
-  cudaMemPrefetchAsync(box.particles, sizeof(particle_t) * box.particle_count,
-                       0);
-  cudaMemPrefetchAsync(cells, sizeof(cell_t) * cell_cnt, 0);
   cudaDeviceSynchronize();
 
   double result = 0;

@@ -3,7 +3,10 @@
 #include "particle_box.h"
 #include "pdb_export.h"
 
+#include "curand_gen.h"
 #include <algorithm>
+#include <curand.h>
+#include <curand_kernel.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -13,16 +16,32 @@
 #include <sstream>
 #include <vector>
 
-constexpr size_t PARTICLE_COUNT = 600;
-constexpr size_t MOVES_PER_ITER = 600;
+constexpr size_t PARTICLE_COUNT = 200;
+constexpr size_t MOVES_PER_ITER = 200;
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 10;
-constexpr size_t ITERATIONS_PER_GRF_EXPORT = 2500;
-// constexpr double TEMPERATURE = 0.88;
-constexpr double TEMPERATURE = 3;
-// constexpr double MAX_STEP = 0.15;
-// constexpr double MAX_STEP = 0.2886751346L;
-constexpr double MAX_STEP = 0.5;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 400;
+constexpr double TEMPERATURE = 0.8;
+// constexpr double TEMPERATURE = 3;
+constexpr double MAX_STEP = 0.2886751346L;
+// constexpr double MAX_STEP = 0.5;
+//
+// int main() {
+//   float *devFloats;
+//   float *hostFloats = new float[200];
+//   curand_gen_t gen(10, 10);
+//   cudaMalloc(&devFloats, sizeof(float) * 200);
+//
+//   gen.generate_random_numbers(devFloats);
+//   cudaMemcpy(hostFloats, devFloats, sizeof(float) * 200,
+//              cudaMemcpyDeviceToHost);
+//   for (int i = 0; i < 200; i++) {
+//     std::cout << hostFloats[i] << std::endl;
+//   }
+//   cudaFree(devFloats);
+//   delete[] hostFloats;
+//   return 0;
+// }
 
 std::map<double, double> do_distr(cell_view_t const &view,
                                   double const rho = 0.5L,
@@ -87,18 +106,19 @@ int main() {
     });
   }
 
-  std::uniform_real_distribution<double> unif_r(0, 1);
-
   double const rho =
       view.box.particle_count /
       (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
   std::map<double, double> distr{};
-  double init_energy = view.total_energy(0.5, 0.25);
-
+  double init_energy = view.total_energy(0.2, 1);
   std::vector<double> energies;
+
+  double *hostFloats = new double[4 * MOVES_PER_ITER];
+  curand_gen_t gen(20, MOVES_PER_ITER / 10);
+
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 5);
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.005L, 5);
       for (const auto &[radius, value] : tmp_distr) {
         distr[radius] += value;
       }
@@ -112,15 +132,18 @@ int main() {
       std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
     }
 
+    gen.generate_random_numbers();
+    gen.copyToHost(hostFloats);
     for (size_t i = 0; i < MOVES_PER_ITER; i++) {
+      size_t const r_idx = i * 4;
       size_t const p_idx =
-          static_cast<size_t>(unif_r(re) * view.box.particle_count) %
+          static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
           view.box.particle_count;
-      double const offset = unif_r(re) - 0.5;
+      double const offset = hostFloats[r_idx + 1] - 0.5;
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-      double const prob_rand = unif_r(re);
-      double angle = unif_r(re) * M_PI;
+      double const prob_rand = hostFloats[r_idx + 2];
+      double angle = hostFloats[r_idx + 3] * M_PI;
       double4 rotation =
           particle_t::random_particle_orient(angle, (i + iters) % 3);
       init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
@@ -146,6 +169,7 @@ int main() {
          << 0.5 * energies[i] / view.box.particle_count << std::endl;
   }
   view.free();
+  delete[] hostFloats;
 
   return 0;
 }
