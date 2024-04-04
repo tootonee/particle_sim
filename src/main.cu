@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <curand.h>
 #include <curand_kernel.h>
+#include "exceptions.h"
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -15,9 +16,10 @@
 #include <random>
 #include <sstream>
 #include <vector>
+#include <cstdlib>
 
-constexpr size_t PARTICLE_COUNT = 200;
-constexpr size_t MOVES_PER_ITER = 200;
+//constexpr size_t PARTICLE_COUNT = 200;
+//constexpr size_t MOVES_PER_ITER = 200;
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 10;
 constexpr size_t ITERATIONS_PER_GRF_EXPORT = 400;
@@ -67,7 +69,30 @@ std::map<double, double> do_distr(cell_view_t const &view,
   return distr;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    size_t PARTICLE_COUNT = 200;
+    size_t MOVES_PER_ITER = 200;
+
+    switch (argc) {
+        case 3:
+            try {
+                PARTICLE_COUNT = std::stoul(argv[2]);
+                MOVES_PER_ITER = std::stoul(argv[1]);
+            } catch (const std::exception& e) {
+                throw InvalidArgumentType();
+            }
+            break;
+        case 2:
+            try {
+                MOVES_PER_ITER = std::stoul(argv[1]);
+            } catch (const std::exception& e) {
+                throw InvalidArgumentType();
+            }
+            break;
+        default:
+            throw InvalidNumberOfArguments();
+    }
+
   std::random_device r;
   std::mt19937 re(r());
 
