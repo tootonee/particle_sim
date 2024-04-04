@@ -115,6 +115,7 @@ int main() {
 
   double *hostFloats = new double[4 * MOVES_PER_ITER];
   curand_gen_t gen(20, MOVES_PER_ITER / 10);
+  // std::uniform_real_distribution<double> unif_r(0, 1);
 
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
@@ -132,23 +133,39 @@ int main() {
       std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
     }
 
-    gen.generate_random_numbers();
-    gen.copyToHost(hostFloats);
     for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-      size_t const r_idx = i * 4;
       size_t const p_idx =
-          static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
+          static_cast<size_t>(unif_r(re) * view.box.particle_count) %
           view.box.particle_count;
-      double const offset = hostFloats[r_idx + 1] - 0.5;
+      double const offset = unif_r(re) - 0.5;
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-      double const prob_rand = hostFloats[r_idx + 2];
-      double angle = hostFloats[r_idx + 3] * M_PI;
+      double const prob_rand = unif_r(re);
+      double angle = unif_r(re) * M_PI;
       double4 rotation =
           particle_t::random_particle_orient(angle, (i + iters) % 3);
       init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
                                             TEMPERATURE);
     }
+    //
+    // gen.generate_random_numbers();
+    // gen.copyToHost(hostFloats);
+    // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
+    //   size_t const r_idx = i * 4;
+    //   size_t const p_idx =
+    //       static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
+    //       view.box.particle_count;
+    //   double const offset = hostFloats[r_idx + 1] - 0.5;
+    //   double3 const new_pos =
+    //       view.try_random_particle_disp(p_idx, offset, MAX_STEP);
+    //   double const prob_rand = hostFloats[r_idx + 2];
+    //   double angle = hostFloats[r_idx + 3] * M_PI;
+    //   double4 rotation =
+    //       particle_t::random_particle_orient(angle, (i + iters) % 3);
+    //   init_energy += view.try_move_particle(p_idx, new_pos, rotation,
+    //   prob_rand,
+    //                                         TEMPERATURE);
+    // }
     energies.push_back(init_energy);
   }
 
