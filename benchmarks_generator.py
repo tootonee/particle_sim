@@ -9,7 +9,7 @@ exe_files = ['./build/particle_sim', './build/particle_sim_fast']
 for exe_file in exe_files:
     results = {}
     for param in parameters:
-        process = subprocess.Popen(['./build/particle_sim', '200', str(param)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen([exe_file, '200', str(param)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         for line in process.stdout:
             print(line.strip())
         process.wait()
@@ -20,7 +20,7 @@ for exe_file in exe_files:
 
 
     json_name = os.path.splitext(os.path.basename(exe_file))[0]
-    
+
     with open(f'{json_name}.json', 'w') as f:
         json.dump(results, f)
 
