@@ -64,8 +64,7 @@ struct __align__(32) cell_view_t {
   void remove_particle_from_box(particle_t const &p);
   double particle_energy_square_well(
       particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);
-  double particle_energy_patch(particle_t const &p, double const cosmax = 0.96,
-                               double const sigma = 0.2,
+  double particle_energy_patch(particle_t const &p, double const cosmax = 0.92,
                                double const epsilon = 0.2);
   double particle_energy_square_well_device(
       particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);

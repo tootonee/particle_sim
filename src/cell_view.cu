@@ -342,7 +342,7 @@ double cell_view_t::total_energy(double const sigma, double const val) {
   double total = 0.0F;
   for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
     total += particle_energy_square_well(box.particles[p_idx], sigma, val);
-    // total += particle_energy_patch(box.particles[p_idx], 0.92, 0.3, -0.5);
+    total += particle_energy_patch(box.particles[p_idx], 0.92, -0.5);
   }
   return total * 0.5L;
 }
@@ -490,13 +490,13 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
 
   // double const old_energy = particle_energy_square_well(part, 0.2, -1);
   double const old_energy = particle_energy_square_well(part, 0.2, 1) +
-                            particle_energy_patch(part, 0.98, 0.1, -2);
+                            particle_energy_patch(part, 0.92, -2);
 
   part.pos = new_pos;
   part.rotate(rotation);
   // double new_energy = particle_energy_square_well(part, 0.2, -1);
   double new_energy = particle_energy_square_well(part, 0.2, 1) +
-                      particle_energy_patch(part, 0.98, 0.1, -2);
+                      particle_energy_patch(part, 0.92, -2);
   part.pos = old_pos;
   double prob = exp(-(new_energy - old_energy) / temp);
   if (prob_r >= prob) {
@@ -517,11 +517,10 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
 
 double cell_view_t::particle_energy_patch(particle_t const &p,
                                           double const cosmax,
-                                          double const sigma,
                                           double const epsilon) {
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   double result = 0.0F;
-  double const dist = 2 * p.radius + sigma;
+  double const dist = 2 * p.radius + 0.238;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   double3 coeff_val = {

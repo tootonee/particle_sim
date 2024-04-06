@@ -1,0 +1,16 @@
+reset
+set terminal postscript eps size 4.0,3.0 enhanced color font 'Helvetica,18' linewidth 2
+set output 'plot_rdf.eps'
+set lmargin 7
+set rmargin 1
+set ylabel "g(r)" font ",24" offset 2,0
+set xlabel "r" font ",24" offset 0,1
+set xtics font ", 20"  offset 0.0, 0.5
+set ytics font ", 20"  offset 0.5, 0.0
+set tics scale 1.5 out nomirror
+set grid
+set label "A: HS+SQW (w=0.2)" left at graph 0.65, graph 0.75 front
+#set label "A: HS" left at graph 0.65, graph 0.75 front
+set label "{/Symbol r}_{A} = 0.50; T = 1.00" left at graph 0.65, graph 0.65 front
+#set label "{/Symbol r}_{A} = 0.50" left at graph 0.65, graph 0.65 front
+pl[0:5.0][0:4.0] 'rdf.dat' with lines lw 1.5 lt 1 lc rgb 'red' title "A - A"
