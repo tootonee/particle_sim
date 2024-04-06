@@ -18,7 +18,7 @@ set(WARNINGS_AS_ERRORS ON)
 # Project name, files, packages, libraries and so on
 ##########################################################
 
-set(PROJECT_NAME particle_sim)
+set(PROJECT_NAME particle_sim_fast)
 project(${PROJECT_NAME} CXX CUDA)
 
 file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/include/*.h)

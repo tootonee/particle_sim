@@ -2,7 +2,7 @@
 #include "particle.h"
 #include "particle_box.h"
 #include "pdb_export.h"
-
+#include "time_calculation.h"
 #include "curand_gen.h"
 #include "exceptions.h"
 #include <algorithm>
@@ -70,6 +70,7 @@ std::map<double, double> do_distr(cell_view_t const &view,
 }
 
 int main(int argc, char *argv[]) {
+  bool is_started = false;
   size_t PARTICLE_COUNT = 200;
   size_t MOVES_PER_ITER = 200;
 
@@ -140,7 +141,8 @@ int main(int argc, char *argv[]) {
 
   double *hostFloats = new double[4 * MOVES_PER_ITER];
   curand_gen_t gen(20, MOVES_PER_ITER / 10);
-  // std::uniform_real_distribution<double> unif_r(0, 1);
+  auto start = std::chrono::high_resolution_clock::now();
+  std::uniform_real_distribution<double> unif_r(0, 1);
 
   for (size_t iters = 1; iters <= 2 * ITERATIONS; iters++) {
     if (iters >= ITERATIONS) {
@@ -157,44 +159,52 @@ int main(int argc, char *argv[]) {
         std::sprintf(buf, "data/%06li.pdb", idx);
         export_particles_to_pdb(view.box, buf);
         std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
+        if (!is_started) {
+          is_started = true;
+          start = getCurrentTimeFenced();
+        }
       }
     }
 
-    // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-    //   size_t const p_idx =
-    //       static_cast<size_t>(unif_r(re) * view.box.particle_count) %
-    //       view.box.particle_count;
-    //   double const offset = unif_r(re) - 0.5;
-    //   double3 const new_pos =
-    //       view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-    //   double const prob_rand = unif_r(re);
-    //   double angle = unif_r(re) * M_PI;
-    //   double4 rotation =
-    //       particle_t::random_particle_orient(angle, (i + iters) % 3);
-    //   init_energy += view.try_move_particle(p_idx, new_pos, rotation,
-    //   prob_rand,
-    //                                         TEMPERATURE);
-    // }
-    //
-    gen.generate_random_numbers();
-    gen.copyToHost(hostFloats);
-    for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-      size_t const r_idx = i * 4;
-      size_t const p_idx =
-          static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
-          view.box.particle_count;
-      double const offset = hostFloats[r_idx + 1] - 0.5;
-      double3 const new_pos =
-          view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-      double const prob_rand = hostFloats[r_idx + 2];
-      double angle = hostFloats[r_idx + 3] * M_PI;
-      double4 rotation =
-          particle_t::random_particle_orient(angle, (i + iters) % 3);
-      init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
-                                            TEMPERATURE);
-    }
+     for (size_t i = 0; i < MOVES_PER_ITER; i++) {
+       size_t const p_idx =
+           static_cast<size_t>(unif_r(re) * view.box.particle_count) %
+           view.box.particle_count;
+       double const offset = unif_r(re) - 0.5;
+       double3 const new_pos =
+           view.try_random_particle_disp(p_idx, offset, MAX_STEP);
+       double const prob_rand = unif_r(re);
+       double angle = unif_r(re) * M_PI;
+       double4 rotation =
+           particle_t::random_particle_orient(angle, (i + iters) % 3);
+       init_energy += view.try_move_particle(p_idx, new_pos, rotation,
+       prob_rand,
+                                             TEMPERATURE);
+     }
+
+  //  gen.generate_random_numbers();
+  //  gen.copyToHost(hostFloats);
+  //  for (size_t i = 0; i < MOVES_PER_ITER; i++) {
+  //    size_t const r_idx = i * 4;
+  //    size_t const p_idx =
+  //        static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
+  //        view.box.particle_count;
+  //    double const offset = hostFloats[r_idx + 1] - 0.5;
+  //    double3 const new_pos =
+  //        view.try_random_particle_disp(p_idx, offset, MAX_STEP);
+  //    double const prob_rand = hostFloats[r_idx + 2];
+  //    double angle = hostFloats[r_idx + 3] * M_PI;
+  //    double4 rotation =
+  //        particle_t::random_particle_orient(angle, (i + iters) % 3);
+  //    init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
+  //                                          TEMPERATURE);
+  //  }
     energies.push_back(init_energy);
   }
+
+  auto finish = getCurrentTimeFenced();
+  auto total_time = finish - start;
+  std::cout << "TIME " << to_us(total_time) << std::endl;
 
   std::ofstream other_file("output.dat");
   other_file << std::fixed << std::setprecision(6);
