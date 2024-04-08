@@ -15,6 +15,12 @@ def calculating():
                 print(line.strip())
             process.wait()
 
+            last_line = line.strip()
+            time_number = int(last_line.split()[-1])
+            results[str(param)] = time_number
+
+            print(results)
+
         for param in parameters_after:
             process = subprocess.Popen([exe_file, str(param), '400'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             for line in process.stdout:
@@ -25,7 +31,8 @@ def calculating():
             time_number = int(last_line.split()[-1])
             results[str(param)] = time_number
 
-
+            print(results)
+            
         json_name = os.path.splitext(os.path.basename(exe_file))[0]
 
         with open(f'{json_name}.json', 'w') as f:
