@@ -438,6 +438,8 @@ double cell_view_t::particle_energy_square_well_device(particle_t const &p,
   const size_t thread_count = coeff_val.x * coeff_val.y * coeff_val.z * 8;
   energy_square_well<<<1, thread_count>>>(*this, p, strides, coeff_val, sigma,
                                           val);
+  cudaMemcpy(cells, cells_device, sizeof(cell_t) * cell_cnt,
+             cudaMemcpyDeviceToHost);
   cudaDeviceSynchronize();
 
   double result = 0;
@@ -489,14 +491,18 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
   particle_t &part = box.particles[p_idx];
 
   // double const old_energy = particle_energy_square_well(part, 0.2, -1);
-  double const old_energy = particle_energy_square_well(part, 0.2, 1) +
-                            particle_energy_patch(part, 0.92, -2);
+  // double const old_energy = particle_energy_square_well(part, 0.2, 1) +
+  //                           particle_energy_patch(part, 0.92, -2);
+  double const old_energy = particle_energy_patch(part, 0.92, -2) +
+                            particle_energy_square_well_device(part, 0.2, 1);
 
   part.pos = new_pos;
   part.rotate(rotation);
   // double new_energy = particle_energy_square_well(part, 0.2, -1);
-  double new_energy = particle_energy_square_well(part, 0.2, 1) +
-                      particle_energy_patch(part, 0.92, -2);
+  // double new_energy = particle_energy_square_well(part, 0.2, 1) +
+  //                     particle_energy_patch(part, 0.92, -2);
+  double const new_energy = particle_energy_patch(part, 0.92, -2) +
+                            particle_energy_square_well_device(part, 0.2, 1);
   part.pos = old_pos;
   double prob = exp(-(new_energy - old_energy) / temp);
   if (prob_r >= prob) {
