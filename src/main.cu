@@ -27,6 +27,7 @@ constexpr double TEMPERATURE = 0.85;
 // constexpr double TEMPERATURE = 3;
 // constexpr double MAX_STEP = 0.2886751346L;
 constexpr double MAX_STEP = 0.5;
+constexpr size_t THREADS_PER_BLOCK = 256;
 //
 // int main() {
 //   float *devFloats;
@@ -139,16 +140,31 @@ int main(int argc, char *argv[]) {
   double init_energy = view.total_energy(0.2, -1);
   std::vector<double> energies;
 
-  double *hostFloats = new double[4 * MOVES_PER_ITER];
-  curand_gen_t gen(20, MOVES_PER_ITER / 10);
+  size_t N{};
+  if (MOVES_PER_ITER > THREADS_PER_BLOCK) {
+    N = 2 * (MOVES_PER_ITER / THREADS_PER_BLOCK + 1) * THREADS_PER_BLOCK;
+  } else {
+    N = 4 * MOVES_PER_ITER;
+  }
+  double *hostFloats = new double[N];
+  size_t blocks{};
+  size_t threads{};
+  if (MOVES_PER_ITER > THREADS_PER_BLOCK) {
+    blocks = 2 * (MOVES_PER_ITER / THREADS_PER_BLOCK) + 2;
+    threads = THREADS_PER_BLOCK;
+  } else {
+    blocks = 2;
+    threads = MOVES_PER_ITER;
+  }
+  curand_gen_t gen(blocks, threads);
   auto start = getCurrentTimeFenced();
   std::uniform_real_distribution<double> unif_r(0, 1);
 
   for (size_t iters = 1; iters <= 2 * ITERATIONS; iters++) {
     // if (iters >= ITERATIONS) {
     //   if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-    //     std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
-    //     for (const auto &[radius, value] : tmp_distr) {
+    //     std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L,
+    //     5); for (const auto &[radius, value] : tmp_distr) {
     //       distr[radius] += value;
     //     }
     //   }
@@ -158,47 +174,47 @@ int main(int argc, char *argv[]) {
     //     char buf[16];
     //     std::sprintf(buf, "data/%06li.pdb", idx);
     //     export_particles_to_pdb(view.box, buf);
-    //     std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
-    //     if (!is_started) {
+    //     std::cout << "I = " << idx << ", energy = " << init_energy <<
+    //     std::endl; if (!is_started) {
     //       is_started = true;
     //       start = getCurrentTimeFenced();
     //     }
     //   }
     // }
 
-     for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-       size_t const p_idx =
-           static_cast<size_t>(unif_r(re) * view.box.particle_count) %
-           view.box.particle_count;
-       double const offset = unif_r(re) - 0.5;
-       double3 const new_pos =
-           view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-       double const prob_rand = unif_r(re);
-       double angle = unif_r(re) * M_PI;
-       double4 rotation =
-           particle_t::random_particle_orient(angle, (i + iters) % 3);
-       init_energy += view.try_move_particle(p_idx, new_pos, rotation,
-       prob_rand,
-                                             TEMPERATURE);
-     }
+    // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
+    //   size_t const p_idx =
+    //       static_cast<size_t>(unif_r(re) * view.box.particle_count) %
+    //       view.box.particle_count;
+    //   double const offset = unif_r(re) - 0.5;
+    //   double3 const new_pos =
+    //       view.try_random_particle_disp(p_idx, offset, MAX_STEP);
+    //   double const prob_rand = unif_r(re);
+    //   double angle = unif_r(re) * M_PI;
+    //   double4 rotation =
+    //       particle_t::random_particle_orient(angle, (i + iters) % 3);
+    //   init_energy += view.try_move_particle(p_idx, new_pos, rotation,
+    //   prob_rand,
+    //                                         TEMPERATURE);
+    // }
 
-  //  gen.generate_random_numbers();
-  //  gen.copyToHost(hostFloats);
-  //  for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-  //    size_t const r_idx = i * 4;
-  //    size_t const p_idx =
-  //        static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
-  //        view.box.particle_count;
-  //    double const offset = hostFloats[r_idx + 1] - 0.5;
-  //    double3 const new_pos =
-  //        view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-  //    double const prob_rand = hostFloats[r_idx + 2];
-  //    double angle = hostFloats[r_idx + 3] * M_PI;
-  //    double4 rotation =
-  //        particle_t::random_particle_orient(angle, (i + iters) % 3);
-  //    init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
-  //                                          TEMPERATURE);
-  //  }
+    gen.generate_random_numbers();
+    gen.copyToHost(hostFloats);
+    for (size_t i = 0; i < MOVES_PER_ITER; i++) {
+      size_t const r_idx = i * 4;
+      size_t const p_idx =
+          static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
+          view.box.particle_count;
+      double const offset = hostFloats[r_idx + 1] - 0.5;
+      double3 const new_pos =
+          view.try_random_particle_disp(p_idx, offset, MAX_STEP);
+      double const prob_rand = hostFloats[r_idx + 2];
+      double angle = hostFloats[r_idx + 3] * M_PI;
+      double4 rotation =
+          particle_t::random_particle_orient(angle, (i + iters) % 3);
+      init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
+                                            TEMPERATURE);
+    }
     energies.push_back(init_energy);
   }
 

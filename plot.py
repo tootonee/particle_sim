@@ -1,4 +1,5 @@
 import json
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 def read_json(json_file):
@@ -6,7 +7,7 @@ def read_json(json_file):
         data = json.load(f)
     return data
 
-def plot_lines(line1_data, line2_data, output_file = "comparison_two_lines"):
+def plot_lines(line1_data, line2_data, output_file = "comparison_two_lines.svg"):
     plt.figure(figsize=(10, 5))
 
     x_values = list(map(int, line1_data.keys()))
@@ -33,6 +34,8 @@ def main():
     line1_data = read_json(json_file1)
     line2_data = read_json(json_file2)
 
+    print(line1_data)
+    print(line2_data)
     plot_lines(line1_data, line2_data)
 
 if __name__ == "__main__":
