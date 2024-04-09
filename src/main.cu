@@ -1,5 +1,6 @@
 #include "cell_view.h"
 #include "curand_gen.h"
+#include "export_to_lammps.h"
 #include "exceptions.h"
 #include "particle.h"
 #include "particle_box.h"
@@ -28,6 +29,7 @@ constexpr double TEMPERATURE = 0.85;
 // constexpr double MAX_STEP = 0.2886751346L;
 constexpr double MAX_STEP = 0.5;
 constexpr size_t THREADS_PER_BLOCK = 256;
+constexpr double RADIUS = 0.5;
 //
 // int main() {
 //   float *devFloats;
@@ -161,7 +163,8 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<double> unif_r(0, 1);
 
   for (size_t iters = 1; iters <= 2 * ITERATIONS; iters++) {
-    // if (iters >= ITERATIONS) {
+      export_particles_to_lammps(view.box, iters, RADIUS);
+//     if (iters <= ITERATIONS) {
     //   if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
     //     std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L,
     //     5); for (const auto &[radius, value] : tmp_distr) {
@@ -169,18 +172,18 @@ int main(int argc, char *argv[]) {
     //     }
     //   }
 
-    //   if (iters % ITERATIONS_PER_EXPORT == 0) {
-    //     const size_t idx = iters / ITERATIONS_PER_EXPORT;
-    //     char buf[16];
-    //     std::sprintf(buf, "data/%06li.pdb", idx);
-    //     export_particles_to_pdb(view.box, buf);
-    //     std::cout << "I = " << idx << ", energy = " << init_energy <<
-    //     std::endl; if (!is_started) {
-    //       is_started = true;
-    //       start = getCurrentTimeFenced();
-    //     }
-    //   }
-    // }
+//       if (iters % ITERATIONS_PER_EXPORT == 0) {
+//         const size_t idx = iters / ITERATIONS_PER_EXPORT;
+//         char buf[16];
+//         std::sprintf(buf, "data/%06li.pdb", idx);
+//         export_particles_to_pdb(view.box, buf);
+//         std::cout << "I = " << idx << ", energy = " << init_energy <<
+//         std::endl; if (!is_started) {
+//           is_started = true;
+//           start = getCurrentTimeFenced();
+//         }
+//       }
+//     }
 
     // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
     //   size_t const p_idx =
