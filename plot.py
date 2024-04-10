@@ -2,24 +2,26 @@ import json
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+mpl.rcParams.update({'font.size': 45})
+
 def read_json(json_file):
     with open(json_file, 'r') as f:
         data = json.load(f)
     return data
 
-def plot_lines(line1_data, line2_data, output_file = "comparison_two_lines.svg"):
-    plt.figure(figsize=(10, 5))
+def plot_lines(line1_data, line2_data, output_file = "rng_comp.svg"):
+    plt.figure(figsize=(32, 18))
 
     x_values = list(map(int, line1_data.keys()))
     y_values1 = list(line1_data.values())
     y_values2 = list(line2_data.values())
 
-    plt.plot(x_values, y_values1, label='Line 1')
-    plt.plot(x_values, y_values2, label='Line 2')
+    plt.plot(x_values, y_values1, label='Host RNG')
+    plt.plot(x_values, y_values2, label='Device RNG')
 
-    plt.xlabel('X-axis')
-    plt.ylabel('Y-axis')
-    plt.title('Lines from JSON Data')
+    plt.xlabel('Amount of particle moves per iteration ~ amount of floats generated')
+    plt.ylabel('Time to run 10, 000 iterations')
+    plt.title('Comparison of RNG efficacy')
     plt.legend()
     plt.grid(True)
 

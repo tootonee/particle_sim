@@ -17,26 +17,19 @@ void particle_t::random_particle_pos(double3 dimensions) {
 };
 
 double4 particle_t::random_particle_orient(double const angle, int axis) {
-  double4 rotation{
-      .x = cos(angle / 2),
-      .y = 0,
-      .z = 0,
-      .w = 0,
-  };
-
+  const double cos_2 = cos(angle / 2);
+  const double sin_2 = sin(angle / 2);
   switch (axis) {
   case 2:
-    rotation.w = sin(angle / 2);
+    return {cos_2, 0, 0, sin_2};
     break;
   case 1:
-    rotation.z = sin(angle / 2);
+    return {cos_2, 0, sin_2, 0};
     break;
   default:
-    rotation.x = sin(angle / 2);
+    return {cos_2, sin_2, 0, 0};
     break;
   };
-
-  return rotation;
 };
 
 void particle_t::rotate(double4 const rot) {
