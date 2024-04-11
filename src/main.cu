@@ -1,7 +1,7 @@
 #include "cell_view.h"
 #include "curand_gen.h"
-#include "export_to_lammps.h"
 #include "exceptions.h"
+#include "export_to_lammps.h"
 #include "particle.h"
 #include "particle_box.h"
 #include "pdb_export.h"
@@ -21,12 +21,11 @@
 
 // constexpr size_t PARTICLE_COUNT = 200;
 // constexpr size_t MOVES_PER_ITER = 200;
-constexpr size_t ITERATIONS = 1'000;
-constexpr size_t ITERATIONS_PER_EXPORT = 10;
-constexpr size_t ITERATIONS_PER_GRF_EXPORT = 10;
-constexpr double TEMPERATURE = 0.85;
+constexpr size_t ITERATIONS = 10'000;
+constexpr size_t ITERATIONS_PER_EXPORT = 100;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 100;
+constexpr double TEMPERATURE = 0.8;
 // constexpr double TEMPERATURE = 3;
-// constexpr double MAX_STEP = 0.2886751346L;
 constexpr double MAX_STEP = 0.5;
 constexpr size_t THREADS_PER_BLOCK = 256;
 constexpr double RADIUS = 0.5;
@@ -110,52 +109,52 @@ int main(int argc, char *argv[]) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
     // view.add_particle(view.box.particles[i]);
     view.box.particles[i].add_patch({
-        .radius = 0.05,
+        .radius = 0.119,
         .pos = {1, 1, 0, 0},
     });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, -1, 0, 0},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 0, 1},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 0, -1},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 1, 0},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, -1, 0},
-    });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, -1, 0, 0},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 0, 1},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 0, -1},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 1, 0},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, -1, 0},
+    // });
   }
 
   double const rho =
       view.box.particle_count /
       (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
   std::map<double, double> distr{};
-  double init_energy = view.total_energy(0.2, -1);
+  double init_energy = view.total_energy(0.238, -1);
   std::vector<double> energies;
 
   size_t N{};
   if (MOVES_PER_ITER > THREADS_PER_BLOCK) {
-    N = 2 * (MOVES_PER_ITER / THREADS_PER_BLOCK + 1) * THREADS_PER_BLOCK;
+    N = 3 * (MOVES_PER_ITER / THREADS_PER_BLOCK + 1) * THREADS_PER_BLOCK;
   } else {
-    N = 4 * MOVES_PER_ITER;
+    N = 6 * MOVES_PER_ITER;
   }
   double *hostFloats = new double[N];
   size_t blocks{};
   size_t threads{};
   if (MOVES_PER_ITER > THREADS_PER_BLOCK) {
-    blocks = 2 * (MOVES_PER_ITER / THREADS_PER_BLOCK) + 2;
+    blocks = 3 * (MOVES_PER_ITER / THREADS_PER_BLOCK) + 3;
     threads = THREADS_PER_BLOCK;
   } else {
-    blocks = 2;
+    blocks = 3;
     threads = MOVES_PER_ITER;
   }
   curand_gen_t gen(blocks, threads);
@@ -163,27 +162,26 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<double> unif_r(0, 1);
 
   for (size_t iters = 1; iters <= 2 * ITERATIONS; iters++) {
-      export_particles_to_lammps(view.box, iters, RADIUS);
-//     if (iters <= ITERATIONS) {
-    //   if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-    //     std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L,
-    //     5); for (const auto &[radius, value] : tmp_distr) {
-    //       distr[radius] += value;
-    //     }
-    //   }
+    if (iters >= ITERATIONS) {
+      if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
+        std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
+        for (const auto &[radius, value] : tmp_distr) {
+          distr[radius] += value;
+        }
+      }
 
-//       if (iters % ITERATIONS_PER_EXPORT == 0) {
-//         const size_t idx = iters / ITERATIONS_PER_EXPORT;
-//         char buf[16];
-//         std::sprintf(buf, "data/%06li.pdb", idx);
-//         export_particles_to_pdb(view.box, buf);
-//         std::cout << "I = " << idx << ", energy = " << init_energy <<
-//         std::endl; if (!is_started) {
-//           is_started = true;
-//           start = getCurrentTimeFenced();
-//         }
-//       }
-//     }
+      if (iters % ITERATIONS_PER_EXPORT == 0) {
+        const size_t idx = iters / ITERATIONS_PER_EXPORT;
+        char buf[16];
+        std::sprintf(buf, "data/%06li.pdb", idx);
+        export_particles_to_pdb(view.box, buf);
+        std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
+        if (!is_started) {
+          is_started = true;
+          start = getCurrentTimeFenced();
+        }
+      }
+    }
 
     // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
     //   size_t const p_idx =
@@ -204,15 +202,19 @@ int main(int argc, char *argv[]) {
     gen.generate_random_numbers();
     gen.copyToHost(hostFloats);
     for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-      size_t const r_idx = i * 4;
+      size_t const r_idx = i * 6;
       size_t const p_idx =
           static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
           view.box.particle_count;
-      double const offset = hostFloats[r_idx + 1] - 0.5;
+      double3 const offset = {
+          .x = hostFloats[r_idx + 1] - 0.5,
+          .y = hostFloats[r_idx + 2] - 0.5,
+          .z = hostFloats[r_idx + 3] - 0.5,
+      };
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-      double const prob_rand = hostFloats[r_idx + 2];
-      double angle = hostFloats[r_idx + 3] * M_PI;
+      double const prob_rand = hostFloats[r_idx + 4];
+      double angle = hostFloats[r_idx + 5] * M_PI;
       double4 rotation =
           particle_t::random_particle_orient(angle, (i + iters) % 3);
       init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,

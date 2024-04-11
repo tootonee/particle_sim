@@ -58,8 +58,8 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
                                                 double const epsilon) const {
   double3 dist = normalize((double3){
       .x = pos.x - rhs.pos.x,
-      .y = pos.x - rhs.pos.y,
-      .z = pos.x - rhs.pos.z,
+      .y = pos.y - rhs.pos.y,
+      .z = pos.z - rhs.pos.z,
   });
 
   for (size_t i = 0; i < patch_count; i++) {
@@ -69,7 +69,7 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
         p.pos.z,
         p.pos.w,
     });
-    double p_cos = dot(p_pos, dist);
+    double p_cos = -dot(p_pos, dist);
 
     if (p_cos < cosmax) {
       continue;
@@ -82,7 +82,7 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
           q.pos.z,
           q.pos.w,
       });
-      double q_cos = -dot(q_pos, dist);
+      double q_cos = dot(q_pos, dist);
       if (q_cos < cosmax) {
         continue;
       }

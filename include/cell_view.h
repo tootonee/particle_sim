@@ -56,7 +56,7 @@ struct __align__(32) cell_view_t {
   //                                  std::mt19937 &re, double const scale
   //                                  = 2.0F);
   __host__ __device__ double3 try_random_particle_disp(
-      size_t const particle_idx, double const offset,
+      size_t const particle_idx, double3 const offset,
       double const scale = 2.0F);
 
   bool add_particle(particle_t const &p);
