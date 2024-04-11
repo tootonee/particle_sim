@@ -342,7 +342,7 @@ double cell_view_t::total_energy(double const sigma, double const val) {
   double total = 0.0F;
   for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
     total += particle_energy_square_well(box.particles[p_idx], sigma, val);
-    total += particle_energy_patch(box.particles[p_idx], 0.89, 1);
+    total += particle_energy_patch(box.particles[p_idx], 0.89, -2);
   }
   return total * 0.5L;
 }
@@ -491,16 +491,16 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
   particle_t &part = box.particles[p_idx];
 
   // double const old_energy = particle_energy_square_well(part, 0.2, -1);
-  double const old_energy = particle_energy_square_well(part, 0.238, -1) +
-                            particle_energy_patch(part, 0.89, 1);
+  double const old_energy = particle_energy_square_well(part, 0.2, -1) +
+                            particle_energy_patch(part, 0.89, -2);
   // double const old_energy = particle_energy_patch(part, 0.92, -2) +
   //                           particle_energy_square_well_device(part, 0.2, 1);
 
   part.pos = new_pos;
   part.rotate(rotation);
   // double new_energy = particle_energy_square_well(part, 0.2, -1);
-  double new_energy = particle_energy_square_well(part, 0.238, -1) +
-                      particle_energy_patch(part, 0.89, 1);
+  double new_energy = particle_energy_square_well(part, 0.2, -1) +
+                      particle_energy_patch(part, 0.89, -2);
   // double const new_energy = particle_energy_patch(part, 0.92, -2) +
   //                           particle_energy_square_well_device(part, 0.2, 1);
   part.pos = old_pos;
@@ -526,8 +526,7 @@ double cell_view_t::particle_energy_patch(particle_t const &p,
                                           double const epsilon) {
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   double result = 0.0F;
-  size_t patch_ints = 1;
-  double const dist = 2 * p.radius + 0.238;
+  double const dist = 2.238F * p.radius;
   // check cell with particle, also neighboring cells by combining different
   // combinations of -1, 0, 1 for each axis
   double3 coeff_val = {
@@ -576,14 +575,8 @@ double cell_view_t::particle_energy_patch(particle_t const &p,
             continue;
           }
 
-          double res = part.interact(p, cosmax, epsilon);
-          if (res != 0) {
-            patch_ints++;
-            result += res;
-            if (patch_ints == p.patch_count) {
-              return result;
-            }
-          }
+          const double res = part.interact(p, cosmax, epsilon);
+          result += res;
         }
       }
     }

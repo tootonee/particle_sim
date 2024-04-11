@@ -21,10 +21,10 @@
 
 // constexpr size_t PARTICLE_COUNT = 200;
 // constexpr size_t MOVES_PER_ITER = 200;
-constexpr size_t ITERATIONS = 10'000;
-constexpr size_t ITERATIONS_PER_EXPORT = 100;
-constexpr size_t ITERATIONS_PER_GRF_EXPORT = 100;
-constexpr double TEMPERATURE = 0.8;
+constexpr size_t ITERATIONS = 5'000;
+constexpr size_t ITERATIONS_PER_EXPORT = 10;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 10;
+constexpr double TEMPERATURE = 0.65;
 // constexpr double TEMPERATURE = 3;
 constexpr double MAX_STEP = 0.5;
 constexpr size_t THREADS_PER_BLOCK = 256;
@@ -112,10 +112,10 @@ int main(int argc, char *argv[]) {
         .radius = 0.119,
         .pos = {1, 1, 0, 0},
     });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, -1, 0, 0},
-    // });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, -1, 0, 0},
+    });
     // view.box.particles[i].add_patch({
     //     .radius = 0.05,
     //     .pos = {1, 0, 0, 1},
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
       view.box.particle_count /
       (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
   std::map<double, double> distr{};
-  double init_energy = view.total_energy(0.238, -1);
+  double init_energy = view.total_energy(0.2, -1);
   std::vector<double> energies;
 
   size_t N{};

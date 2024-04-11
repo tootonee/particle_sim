@@ -56,7 +56,7 @@ void particle_t::random_particle_pos(rng_gen &rng_x, rng_gen &rng_y,
 __host__ __device__ double particle_t::interact(particle_t const &rhs,
                                                 double const cosmax,
                                                 double const epsilon) const {
-  double3 dist = normalize((double3){
+  const double3 dist = normalize((double3){
       .x = pos.x - rhs.pos.x,
       .y = pos.y - rhs.pos.y,
       .z = pos.z - rhs.pos.z,
@@ -64,7 +64,7 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
 
   for (size_t i = 0; i < patch_count; i++) {
     patch_t const &p = patches[i];
-    double3 p_pos = normalize((double3){
+    const double3 p_pos = normalize((double3){
         p.pos.y,
         p.pos.z,
         p.pos.w,
@@ -77,7 +77,7 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
 
     for (size_t j = 0; j < rhs.patch_count; j++) {
       patch_t const &q = rhs.patches[j];
-      double3 q_pos = normalize((double3){
+      const double3 q_pos = normalize((double3){
           q.pos.y,
           q.pos.z,
           q.pos.w,
