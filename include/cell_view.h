@@ -9,21 +9,24 @@
 #include "particle_box.h"
 #include "patch.h"
 
-static constexpr size_t MAX_PARTICLES_PER_CELL = 6;
+static constexpr size_t MAX_PARTICLES_PER_CELL = 127;
+static constexpr size_t MAX_PARTICLES_PER_CELL_ALIGNED =
+    MAX_PARTICLES_PER_CELL + 1;
 using rng_gen = std::uniform_real_distribution<double>;
 
-struct __align__(32) cell_t {
+struct cell_t {
   size_t num_particles{0};
-  size_t particle_indices[MAX_PARTICLES_PER_CELL]{};
-  double energy{};
+  size_t particle_indices[MAX_PARTICLES_PER_CELL];
 };
 
-struct __align__(32) cell_view_t {
+struct cell_view_t {
   particle_box_t box{};
   cell_t *cells{};
   cell_t *cells_device{};
   size_t cells_per_axis{};
   double3 cell_size{};
+  double *energies_device{};
+  double *energies{};
 
   cell_view_t(double3 const dims, size_t const cs_per_axis) {
     cells_per_axis = cs_per_axis;
@@ -55,21 +58,23 @@ struct __align__(32) cell_view_t {
   // double3 try_random_particle_disp(size_t const particle_idx, rng_gen &rng_x,
   //                                  std::mt19937 &re, double const scale
   //                                  = 2.0F);
-  __host__ __device__ double3 try_random_particle_disp(
-      size_t const particle_idx, double3 const offset,
-      double const scale = 2.0F);
+  __host__ __device__ double3
+  try_random_particle_disp(size_t const particle_idx, double3 const offset,
+                           double const scale = 2.0F);
 
   bool add_particle(particle_t const &p);
   void remove_particle(particle_t const &p);
   void remove_particle_from_box(particle_t const &p);
-  double particle_energy_square_well(
-      particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);
+  double particle_energy_square_well(particle_t const &p,
+                                     double const sigma = 0.2f,
+                                     double const val = 1.0f);
   double particle_energy_patch(particle_t const &p, double const cosmax = 0.92,
                                double const epsilon = 0.2);
-  double particle_energy_square_well_device(
-      particle_t const &p, double const sigma = 0.2f, double const val = 1.0f);
-  double particles_in_range(const size_t idx, const double r1, const double r2)
-      const;
+  double particle_energy_square_well_device(particle_t const &p,
+                                            double const sigma = 0.2f,
+                                            double const val = 1.0f);
+  double particles_in_range(const size_t idx, const double r1,
+                            const double r2) const;
   double total_energy(double const sigma = 0.2F, double const val = 1.0F);
   double try_move_particle(size_t const p_idx, double3 const new_pos,
                            double4 const rotation, double prob_r, double temp);
@@ -84,7 +89,8 @@ struct __align__(32) cell_view_t {
            particle_idx.y * cells_per_axis + particle_idx.z;
   }
 
-  __host__ __device__ bool particle_intersects(particle_t const &p);
+  bool particle_intersects(particle_t const &p);
+  __device__ bool particle_intersects_device(particle_t const &p);
 };
 __global__ void energy_square_well(cell_view_t const view, particle_t const &p,
                                    double *output, int3 strides,

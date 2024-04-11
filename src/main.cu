@@ -24,7 +24,7 @@
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 100;
 constexpr size_t ITERATIONS_PER_GRF_EXPORT = 100;
-constexpr double TEMPERATURE = 0.65;
+constexpr double TEMPERATURE = 4;
 // constexpr double TEMPERATURE = 3;
 constexpr double MAX_STEP = 0.5;
 constexpr size_t THREADS_PER_BLOCK = 256;
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<double> unif_x(0, 10);
   std::uniform_real_distribution<double> unif_y(0, 10);
   std::uniform_real_distribution<double> unif_z(0, 10);
-  cell_view_t view({10, 10, 10}, 10);
+  cell_view_t view({10, 10, 10}, 4);
 
   // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
 
   size_t N{};
   if (MOVES_PER_ITER > THREADS_PER_BLOCK) {
-    N = 3 * (MOVES_PER_ITER / THREADS_PER_BLOCK + 1) * THREADS_PER_BLOCK;
+    N = 6 * (MOVES_PER_ITER / THREADS_PER_BLOCK + 1) * THREADS_PER_BLOCK;
   } else {
     N = 6 * MOVES_PER_ITER;
   }
@@ -161,25 +161,23 @@ int main(int argc, char *argv[]) {
   auto start = getCurrentTimeFenced();
   std::uniform_real_distribution<double> unif_r(0, 1);
 
-  for (size_t iters = 1; iters <= 2 * ITERATIONS; iters++) {
-    if (iters >= ITERATIONS) {
-      if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-        std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
-        for (const auto &[radius, value] : tmp_distr) {
-          distr[radius] += value;
-        }
+  for (size_t iters = 1; iters <= ITERATIONS; iters++) {
+    if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
+      for (const auto &[radius, value] : tmp_distr) {
+        distr[radius] += value;
       }
+    }
 
-      if (iters % ITERATIONS_PER_EXPORT == 0) {
-        const size_t idx = iters / ITERATIONS_PER_EXPORT;
-        char buf[16];
-        std::sprintf(buf, "data/%06li.pdb", idx);
-        export_particles_to_pdb(view.box, buf);
-        std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
-        if (!is_started) {
-          is_started = true;
-          start = getCurrentTimeFenced();
-        }
+    if (iters % ITERATIONS_PER_EXPORT == 0) {
+      const size_t idx = iters / ITERATIONS_PER_EXPORT;
+      char buf[16];
+      std::sprintf(buf, "data/%06li.pdb", idx);
+      export_particles_to_pdb(view.box, buf);
+      std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
+      if (!is_started) {
+        is_started = true;
+        start = getCurrentTimeFenced();
       }
     }
 

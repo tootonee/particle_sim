@@ -33,7 +33,7 @@ public:
   curand_gen_t(size_t blocks, size_t threads)
       : n_blocks(blocks), n_threads(threads) {
     cudaMalloc(&gen_states, blocks * threads * sizeof(curandState));
-    cudaMalloc(&devFloats, blocks * threads * sizeof(double));
+    cudaMalloc(&devFloats, 2 * blocks * threads * sizeof(double));
     cudaStreamCreateWithFlags(&genStream, cudaStreamNonBlocking);
     setup_kernel<<<blocks, threads, 0, genStream>>>(gen_states, time(nullptr));
   }
