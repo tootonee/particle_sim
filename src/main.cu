@@ -21,9 +21,9 @@
 
 // constexpr size_t PARTICLE_COUNT = 200;
 // constexpr size_t MOVES_PER_ITER = 200;
-constexpr size_t ITERATIONS = 5'000;
-constexpr size_t ITERATIONS_PER_EXPORT = 10;
-constexpr size_t ITERATIONS_PER_GRF_EXPORT = 10;
+constexpr size_t ITERATIONS = 10'000;
+constexpr size_t ITERATIONS_PER_EXPORT = 100;
+constexpr size_t ITERATIONS_PER_GRF_EXPORT = 100;
 constexpr double TEMPERATURE = 0.65;
 // constexpr double TEMPERATURE = 3;
 constexpr double MAX_STEP = 0.5;
