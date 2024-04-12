@@ -71,7 +71,7 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
     });
     double p_cos = -dot(p_pos, dist);
 
-    if (p_cos < cosmax) {
+    if (p_cos <= cosmax) {
       continue;
     }
 
@@ -83,7 +83,7 @@ __host__ __device__ double particle_t::interact(particle_t const &rhs,
           q.pos.w,
       });
       double q_cos = dot(q_pos, dist);
-      if (q_cos < cosmax) {
+      if (q_cos <= cosmax) {
         continue;
       }
 

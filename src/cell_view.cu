@@ -8,33 +8,19 @@ void cell_view_t::alloc_cells() {
   size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
 
   cells = new cell_t[cell_count];
-  cudaMalloc(&cells_device, sizeof(cell_t) * cell_count);
 
-  energies = new double[cell_count];
-  cudaMalloc(&energies_device, sizeof(double) * MAX_PARTICLES_PER_CELL_ALIGNED);
+  energies = new double[box.capacity / 2];
+  cudaMalloc(&energies_device, sizeof(double) * box.capacity / 2);
+  // cudaMemset(energies_device, 0.0F, sizeof(double) * MAX_PARTICLES_PER_CELL);
 }
 
-void cell_view_t::free_cells() {
-  delete[] cells;
-  cudaFree(cells_device);
-}
+void cell_view_t::free_cells() { delete[] cells; }
 
 void cell_view_t::free() {
-  free_cells();
   box.free_particles();
+  free_cells();
   delete[] energies;
   cudaFree(energies_device);
-}
-
-void cell_view_t::update_cell(size_t const cell_idx) {
-  const size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
-  if (cell_idx >= cell_count) {
-    return;
-  }
-
-  cudaMemcpy(cells_device + cell_idx, cells + cell_idx, sizeof(cell_t),
-             cudaMemcpyHostToDevice);
-  cudaDeviceSynchronize();
 }
 
 bool cell_view_t::add_particle(particle_t const &p) {
@@ -48,7 +34,6 @@ bool cell_view_t::add_particle(particle_t const &p) {
   }
   cell.particle_indices[cell.num_particles] = p.idx;
   cell.num_particles += 1;
-  update_cell(cell_idx);
   return true;
 }
 
@@ -66,8 +51,9 @@ void cell_view_t::add_particle_to_box(particle_t const &p) {
   }
 }
 
-__host__ __device__ double3 cell_view_t::try_random_particle_disp(
-    size_t const particle_idx, double3 const offset, double const scale) {
+double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
+                                              double3 const offset,
+                                              double const scale) {
   if (particle_idx >= box.particle_count) {
     return {-1, -1, -1};
   }
@@ -189,7 +175,6 @@ void cell_view_t::remove_particle(particle_t const &p) {
     if (cell.particle_indices[i] == p.idx) {
       cell.particle_indices[i] = cell.particle_indices[cell.num_particles - 1];
       cell.num_particles--;
-      update_cell(cell_idx);
       return;
     }
   }
@@ -206,7 +191,6 @@ void cell_view_t::remove_particle_from_box(particle_t const &p) {
     if (cell.particle_indices[i] == p.idx) {
       cell.particle_indices[i] = cell.particle_indices[cell.num_particles - 1];
       cell.num_particles--;
-      update_cell(cell_idx);
       break;
     }
   }
@@ -270,6 +254,11 @@ void cell_view_t::add_particle_random_pos(double radius, rng_gen &rng_x,
                                           std::mt19937 &re) {
   if (box.capacity <= box.particle_count) {
     box.realloc(box.capacity * 2);
+    delete[] energies;
+    cudaFree(energies_device);
+    energies = new double[box.capacity / 2];
+    cudaMalloc(&energies_device, sizeof(double) * box.capacity / 2);
+    // cudaMemset(energies_device, 0.0F, sizeof(double) * box.ca);
   }
   particle_t p{};
   p.radius = radius;
@@ -344,10 +333,12 @@ double cell_view_t::particle_energy_square_well(particle_t const &p,
 }
 
 double cell_view_t::total_energy(double const sigma, double const val) {
+  box.update_particles();
   double total = 0.0F;
   for (size_t p_idx = 0; p_idx <= box.particle_count; p_idx++) {
-    total += particle_energy_square_well(box.particles[p_idx], sigma, val);
-    total += particle_energy_patch(box.particles[p_idx], 0.89, -2);
+    total +=
+        particle_energy_square_well_device(box.particles[p_idx], sigma, val);
+    // total += particle_energy_patch(box.particles[p_idx], 0.89, -2);
   }
   return total * 0.5L;
 }
@@ -390,79 +381,68 @@ double cell_view_t::particles_in_range(const size_t idx, const double r1,
   return result;
 }
 
-__global__ void energy_square_well(size_t p_idx, cell_t *cells, size_t cell_idx,
-                                   particle_t *particles, double *energies_dev,
-                                   double sigma, double val) {
-  size_t thread_idx = threadIdx.x;
-  size_t part_idx = cells[cell_idx].particle_indices[thread_idx];
-  particle_t *p = particles + p_idx;
-  particle_t *part = particles + part_idx;
-  if (distance(p->pos, part->pos) <= sigma) {
-    energies_dev[thread_idx] = val;
-  } else {
-    energies_dev[thread_idx] = 0;
+__global__ void energy_square_well(size_t p_idx, particle_t const *particles,
+                                   size_t p_cnt, double *energies_dev,
+                                   double cosmax, double sigma, double val) {
+  const unsigned thread_idx = (threadIdx.x + blockDim.x * blockIdx.x) * 2;
+
+  if (thread_idx >= p_cnt) {
+    return;
   }
+
+  if (p_idx == thread_idx) {
+    energies_dev[thread_idx] = 0;
+    return;
+  }
+
+  double result = 0.0F;
+  particle_t const &p = particles[p_idx];
+
+  particle_t const &part = particles[thread_idx];
+  double const dist = distance(p.pos, part.pos);
+  if (dist <= (p.radius + part.radius + sigma)) {
+    result += val;
+  }
+
+  if (dist <= p.radius * 2.238) {
+    result += part.interact(p, cosmax, 2 * val);
+  }
+
+  if (thread_idx >= p_cnt || thread_idx == p_idx) {
+    energies_dev[thread_idx] = result;
+    return;
+  }
+
+  particle_t const &part1 = particles[thread_idx];
+  double const dist1 = distance(p.pos, part.pos);
+  if (dist1 <= (p.radius + part1.radius + sigma)) {
+    result += val;
+  }
+
+  if (dist1 <= p.radius * 2.238) {
+    result += part1.interact(p, cosmax, 2 * val);
+  }
+  energies_dev[thread_idx] = result;
 }
 
 double cell_view_t::particle_energy_square_well_device(particle_t const &p,
                                                        double const sigma,
                                                        double const val) {
-  size_t cell_count = cells_per_axis * cells_per_axis * cells_per_axis;
   double result = 0.0F;
-  double const dist = 2 * p.radius + sigma;
-  double3 coeff_val = {
-      .x = ceil(dist / cell_size.x),
-      .y = ceil(dist / cell_size.y),
-      .z = ceil(dist / cell_size.z),
-  };
-  for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
-    double x = p.pos.x + coeff_x * cell_size.x;
-    if (x < 0) {
-      x += box.dimensions.x;
-    }
-    if (x >= box.dimensions.x) {
-      x -= box.dimensions.x;
-    }
-    for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
-      double y = p.pos.y + coeff_y * cell_size.y;
-      if (y < 0) {
-        y += box.dimensions.y;
-      }
-      if (y >= box.dimensions.y) {
-        y -= box.dimensions.y;
-      }
-      for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
-           coeff_z += 1) {
-        double z = p.pos.z + coeff_z * cell_size.z;
-        if (z < 0) {
-          z += box.dimensions.z;
-        }
-        if (z >= box.dimensions.z) {
-          z -= box.dimensions.z;
-        }
+  unsigned blocks = 1;
+  unsigned threads = box.particle_count / 2;
+  if (box.particle_count >= 512) {
+    threads = 256;
+    blocks = box.particle_count / 512;
+  }
+  energy_square_well<<<blocks, threads>>>(p.idx, box.particles_device,
+                                          box.particle_count, energies_device,
+                                          0.89, sigma, val);
+  cudaMemcpy(energies, energies_device, sizeof(double) * box.particle_count / 2,
+             cudaMemcpyDeviceToHost);
 
-        size_t cell_idx = get_cell_idx((double3){x, y, z});
-        if (cell_idx > cell_count) {
-          continue;
-        }
-
-        cell_t const &cell = cells[cell_idx];
-
-        if (cell.num_particles == 0) {
-          continue;
-        }
-
-        energy_square_well<<<1, cell.num_particles>>>(
-            p.idx, cells_device, cell_idx, box.particles_device,
-            energies_device, sigma, val);
-        cudaDeviceSynchronize();
-        cudaMemcpy(energies, energies_device,
-                   sizeof(double) * cell.num_particles, cudaMemcpyDeviceToHost);
-        for (size_t i = 0; i < cell.num_particles; i++) {
-          result += energies[i];
-        }
-      }
-    }
+  for (size_t i = 0; i < box.particle_count / 2; i++) {
+    result += energies[i];
   }
   return result;
 }
@@ -477,23 +457,16 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
   double3 const old_pos = box.particles[p_idx].pos;
   particle_t &part = box.particles[p_idx];
 
-  // double old_energy = particle_energy_square_well(part, 0.2, -1);
-  double old_energy = particle_energy_square_well_device(part, 0.2, -1);
-  // double old_energy = particle_energy_square_well(part, 0.2, -1) +
-  //                           particle_energy_patch(part, 0.89, -2);
-  // double old_energy = particle_energy_patch(part, 0.92, -2) +
-  //                           particle_energy_square_well_device(part, 0.2, 1);
+  double old_energy = particle_energy_square_well(part, 0.2, -1) +
+                      particle_energy_patch(part, 0.89, -2);
 
   part.pos = new_pos;
   part.rotate(rotation);
-  // double const new_energy = particle_energy_square_well(part, 0.2, -1);
-  double new_energy = particle_energy_square_well_device(part, 0.2, -1);
-  // double new_energy = particle_energy_square_well(part, 0.2, -1) +
-  //                     particle_energy_patch(part, 0.89, -2);
-  // double const new_energy = particle_energy_patch(part, 0.92, -2) +
-  //                           particle_energy_square_well_device(part, 0.2, 1);
+  double new_energy = particle_energy_square_well(part, 0.2, -1) +
+                      particle_energy_patch(part, 0.89, -2);
   part.pos = old_pos;
-  double prob = exp(-(new_energy - old_energy) / temp);
+  double const d_energy = (new_energy - old_energy);
+  double prob = exp(-(d_energy / temp));
   if (prob_r >= prob) {
     part.rotate({
         .x = rotation.x,
@@ -505,9 +478,48 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
   }
   remove_particle(box.particles[p_idx]);
   part.pos = new_pos;
-  box.update_particle(p_idx);
   add_particle(box.particles[p_idx]);
-  return new_energy - old_energy;
+  return d_energy;
+}
+
+double cell_view_t::try_move_particle_device(size_t const p_idx,
+                                             double3 const new_pos,
+                                             double4 const rotation,
+                                             double prob_r, double temp) {
+  if (new_pos.x == -1) {
+    return 0;
+  }
+
+  particle_t &part = box.particles[p_idx];
+  double3 const old_pos = part.pos;
+
+  double old_energy = particle_energy_square_well_device(part, 0.2, -1);
+
+  part.pos = new_pos;
+  part.rotate(rotation);
+  box.update_particle(p_idx);
+  double new_energy = particle_energy_square_well_device(part, 0.2, -1);
+  double const d_energy = (new_energy - old_energy);
+
+  double prob = exp(-(d_energy / temp));
+  part.pos = old_pos;
+  if (prob_r >= prob) {
+    part.rotate({
+        .x = rotation.x,
+        .y = -rotation.y,
+        .z = -rotation.z,
+        .w = -rotation.w,
+    });
+
+    box.update_particle(p_idx);
+    return 0;
+  }
+
+  remove_particle(part);
+  part.pos = new_pos;
+  box.update_particle(p_idx);
+  add_particle(part);
+  return d_energy;
 }
 
 double cell_view_t::particle_energy_patch(particle_t const &p,
@@ -571,54 +583,4 @@ double cell_view_t::particle_energy_patch(particle_t const &p,
     }
   }
   return result;
-}
-
-__device__ bool cell_view_t::particle_intersects_device(particle_t const &p) {
-  const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
-  // check cell with particle, also neighboring cells by combining different
-  // combinations of -1, 0, 1 for each axis
-  double3 coeff_val = {
-      .x = 2 * ceil(p.radius / cell_size.x),
-      .y = 2 * ceil(p.radius / cell_size.y),
-      .z = 2 * ceil(p.radius / cell_size.z),
-  };
-  for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
-    double x = p.pos.x + coeff_x * cell_size.x;
-    if (x < 0) {
-      x += box.dimensions.x;
-    }
-    if (x > box.dimensions.x) {
-      x -= box.dimensions.x;
-    }
-    for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
-      double y = p.pos.y + coeff_y * cell_size.y;
-      if (y < 0) {
-        y += box.dimensions.y;
-      }
-      if (y > box.dimensions.y) {
-        y -= box.dimensions.y;
-      }
-      for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
-           coeff_z += 1) {
-        double z = p.pos.z + coeff_z * cell_size.z;
-        if (z < 0) {
-          z += box.dimensions.z;
-        }
-        if (z > box.dimensions.z) {
-          z -= box.dimensions.z;
-        }
-        size_t cell_idx = get_cell_idx((double3){x, y, z});
-        if (cell_idx >= cell_cnt) {
-          continue;
-        }
-        cell_t const &cell = cells_device[cell_idx];
-        for (size_t i = 0; i < cell.num_particles; i++) {
-          if (box.particles_device[cell.particle_indices[i]].intersects(p)) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
 }

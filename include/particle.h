@@ -26,8 +26,8 @@ struct __align__(32) particle_t {
   static double4 random_particle_orient(double const angle, int axis = 0);
   void rotate(double4 rot);
   __host__ __device__ double interact(particle_t const &rhs,
-                                      double const cosmax = 0.2,
-                                      double const epsilon = 0.2) const;
+                                      double const cosmax = 0.89,
+                                      double const epsilon = -2) const;
 
   __host__ __device__ inline constexpr bool intersects(
       double3 const other_pos, double const other_radius) {

@@ -9,9 +9,7 @@
 #include "particle_box.h"
 #include "patch.h"
 
-static constexpr size_t MAX_PARTICLES_PER_CELL = 127;
-static constexpr size_t MAX_PARTICLES_PER_CELL_ALIGNED =
-    MAX_PARTICLES_PER_CELL + 1;
+static constexpr size_t MAX_PARTICLES_PER_CELL = 255;
 using rng_gen = std::uniform_real_distribution<double>;
 
 struct cell_t {
@@ -22,7 +20,6 @@ struct cell_t {
 struct cell_view_t {
   particle_box_t box{};
   cell_t *cells{};
-  cell_t *cells_device{};
   size_t cells_per_axis{};
   double3 cell_size{};
   double *energies_device{};
@@ -51,16 +48,11 @@ struct cell_view_t {
   void free_cells();
   void realloc(size_t cap);
   void add_particle_to_box(particle_t const &p);
-  // bool add_particle_to_box(double radius, rng_gen &rng_x, rng_gen &rng_y,
-  //                          rng_gen &rng_z, std::mt19937 &re);
   void add_particle_random_pos(double radius, rng_gen &rng_x, rng_gen &rng_y,
                                rng_gen &rng_z, std::mt19937 &re);
-  // double3 try_random_particle_disp(size_t const particle_idx, rng_gen &rng_x,
-  //                                  std::mt19937 &re, double const scale
-  //                                  = 2.0F);
-  __host__ __device__ double3
-  try_random_particle_disp(size_t const particle_idx, double3 const offset,
-                           double const scale = 2.0F);
+  double3 try_random_particle_disp(size_t const particle_idx,
+                                   double3 const offset,
+                                   double const scale = 2.0F);
 
   bool add_particle(particle_t const &p);
   void remove_particle(particle_t const &p);
@@ -78,6 +70,9 @@ struct cell_view_t {
   double total_energy(double const sigma = 0.2F, double const val = 1.0F);
   double try_move_particle(size_t const p_idx, double3 const new_pos,
                            double4 const rotation, double prob_r, double temp);
+  double try_move_particle_device(size_t const p_idx, double3 const new_pos,
+                                  double4 const rotation, double prob_r,
+                                  double temp);
 
   inline constexpr __host__ __device__ size_t get_cell_idx(double3 const &p) {
     uint3 const particle_idx = {
@@ -90,12 +85,5 @@ struct cell_view_t {
   }
 
   bool particle_intersects(particle_t const &p);
-  __device__ bool particle_intersects_device(particle_t const &p);
 };
-__global__ void energy_square_well(cell_view_t const view, particle_t const &p,
-                                   double *output, int3 strides,
-                                   double3 coeff_vals,
-                                   double const sigma = 2.0F,
-                                   double const val = 1.0F);
-
 #endif

@@ -24,7 +24,7 @@
 constexpr size_t ITERATIONS = 10'000;
 constexpr size_t ITERATIONS_PER_EXPORT = 100;
 constexpr size_t ITERATIONS_PER_GRF_EXPORT = 100;
-constexpr double TEMPERATURE = 4;
+constexpr double TEMPERATURE = 0.8;
 // constexpr double TEMPERATURE = 3;
 constexpr double MAX_STEP = 0.5;
 constexpr size_t THREADS_PER_BLOCK = 256;
@@ -72,7 +72,6 @@ std::map<double, double> do_distr(cell_view_t const &view,
 }
 
 int main(int argc, char *argv[]) {
-  bool is_started = false;
   size_t PARTICLE_COUNT = 200;
   size_t MOVES_PER_ITER = 200;
 
@@ -102,12 +101,11 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<double> unif_x(0, 10);
   std::uniform_real_distribution<double> unif_y(0, 10);
   std::uniform_real_distribution<double> unif_z(0, 10);
-  cell_view_t view({10, 10, 10}, 4);
+  cell_view_t view({10, 10, 10}, 10);
 
   // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
-    // view.add_particle(view.box.particles[i]);
     view.box.particles[i].add_patch({
         .radius = 0.119,
         .pos = {1, 1, 0, 0},
@@ -161,25 +159,23 @@ int main(int argc, char *argv[]) {
   auto start = getCurrentTimeFenced();
   std::uniform_real_distribution<double> unif_r(0, 1);
 
+  start = getCurrentTimeFenced();
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
-    if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
-      for (const auto &[radius, value] : tmp_distr) {
-        distr[radius] += value;
-      }
-    }
-
-    if (iters % ITERATIONS_PER_EXPORT == 0) {
-      const size_t idx = iters / ITERATIONS_PER_EXPORT;
-      char buf[16];
-      std::sprintf(buf, "data/%06li.pdb", idx);
-      export_particles_to_pdb(view.box, buf);
-      std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
-      if (!is_started) {
-        is_started = true;
-        start = getCurrentTimeFenced();
-      }
-    }
+    // if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
+    //   std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
+    //   for (const auto &[radius, value] : tmp_distr) {
+    //     distr[radius] += value;
+    //   }
+    // }
+    //
+    // if (iters % ITERATIONS_PER_EXPORT == 0) {
+    //   const size_t idx = iters / ITERATIONS_PER_EXPORT;
+    //   char buf[16];
+    //   std::sprintf(buf, "data/%06li.pdb", idx);
+    //   export_particles_to_pdb(view.box, buf);
+    //   std::cout << "I = " << idx << ", energy = " << init_energy <<
+    //   std::endl;
+    // }
 
     // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
     //   size_t const p_idx =
@@ -215,6 +211,8 @@ int main(int argc, char *argv[]) {
       double angle = hostFloats[r_idx + 5] * M_PI;
       double4 rotation =
           particle_t::random_particle_orient(angle, (i + iters) % 3);
+      // init_energy += view.try_move_particle_device(p_idx, new_pos, rotation,
+      //                                              prob_rand, TEMPERATURE);
       init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
                                             TEMPERATURE);
     }
