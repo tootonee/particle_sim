@@ -114,22 +114,22 @@ int main(int argc, char *argv[]) {
         .radius = 0.05,
         .pos = {1, -1, 0, 0},
     });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, 0, 0, 1},
-    // });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, 0, 0, -1},
-    // });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, 0, 1, 0},
-    // });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, 0, -1, 0},
-    // });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, 0, 1},
+    });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, 0, -1},
+    });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, 1, 0},
+    });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, -1, 0},
+    });
   }
 
   double const rho =
@@ -211,10 +211,11 @@ int main(int argc, char *argv[]) {
       double angle = hostFloats[r_idx + 5] * M_PI;
       double4 rotation =
           particle_t::random_particle_orient(angle, (i + iters) % 3);
-      // init_energy += view.try_move_particle_device(p_idx, new_pos, rotation,
-      //                                              prob_rand, TEMPERATURE);
-      init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
-                                            TEMPERATURE);
+      init_energy += view.try_move_particle_device(p_idx, new_pos, rotation,
+                                                   prob_rand, TEMPERATURE);
+      // init_energy += view.try_move_particle(p_idx, new_pos, rotation,
+      // prob_rand,
+      //                                       TEMPERATURE);
     }
     energies.push_back(init_energy);
   }

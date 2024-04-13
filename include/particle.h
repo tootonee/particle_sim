@@ -20,6 +20,31 @@ struct __align__(32) particle_t {
   size_t patch_count{0};
   size_t idx{};
 
+  particle_t() = default;
+  particle_t(particle_t const &part) {
+    radius = part.radius;
+    pos = part.pos;
+    orient = part.orient;
+    patch_count = part.patch_count;
+    for (size_t i = 0; i < patch_count; i++) {
+      patches[i] = part.patches[i];
+    }
+    idx = part.idx;
+  }
+
+  particle_t &operator=(particle_t const &part) {
+    radius = part.radius;
+    pos = part.pos;
+    orient = part.orient;
+    patch_count = part.patch_count;
+    for (size_t i = 0; i < patch_count; i++) {
+      patches[i] = part.patches[i];
+    }
+    idx = part.idx;
+
+    return *this;
+  }
+
   void random_particle_pos(double3 dimensions);
   void random_particle_pos(rng_gen & rng_x, rng_gen & rng_y, rng_gen & rng_z,
                            std::mt19937 & re);

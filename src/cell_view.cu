@@ -256,9 +256,9 @@ void cell_view_t::add_particle_random_pos(double radius, rng_gen &rng_x,
     box.realloc(box.capacity * 2);
     delete[] energies;
     cudaFree(energies_device);
+
     energies = new double[box.capacity / 2];
     cudaMalloc(&energies_device, sizeof(double) * box.capacity / 2);
-    // cudaMemset(energies_device, 0.0F, sizeof(double) * box.ca);
   }
   particle_t p{};
   p.radius = radius;
@@ -381,67 +381,81 @@ double cell_view_t::particles_in_range(const size_t idx, const double r1,
   return result;
 }
 
-__global__ void energy_square_well(size_t p_idx, particle_t const *particles,
-                                   size_t p_cnt, double *energies_dev,
-                                   double cosmax, double sigma, double val) {
-  const unsigned thread_idx = (threadIdx.x + blockDim.x * blockIdx.x) * 2;
+__device__ inline void do_energy_calc(size_t p_idx, particle_t const *particles,
+                                      size_t p_cnt, double cosmax, double sigma,
+                                      double val, double &result, size_t offset,
+                                      size_t idx, particle_t const &p) {
+
+  size_t thread_idx = idx + offset;
+  if (thread_idx >= p_cnt || thread_idx == p_idx) {
+    return;
+  }
+
+  particle_t const &part = particles[thread_idx];
+  double const dist = distance(p.pos, part.pos);
+
+  if (dist > (p.radius + part.radius + sigma)) {
+    return;
+  }
+
+  result += val;
+
+  if (dist > p.radius * 2.238) {
+    return;
+  }
+
+  result += p.interact(part, cosmax, 2 * val);
+}
+
+__global__ void energy_square_well(particle_t const p,
+                                   particle_t const *particles, size_t p_cnt,
+                                   double *energies_dev, double cosmax,
+                                   double sigma, double val) {
+  const unsigned thread_idx = (threadIdx.x + blockDim.x * blockIdx.x) << 1;
 
   if (thread_idx >= p_cnt) {
     return;
   }
 
-  if (p_idx == thread_idx) {
-    energies_dev[thread_idx] = 0;
-    return;
-  }
-
   double result = 0.0F;
-  particle_t const &p = particles[p_idx];
+  do_energy_calc(p.idx, particles, p_cnt, cosmax, sigma, val, result, 0,
+                 thread_idx, p);
+  do_energy_calc(p.idx, particles, p_cnt, cosmax, sigma, val, result, 1,
+                 thread_idx, p);
 
-  particle_t const &part = particles[thread_idx];
-  double const dist = distance(p.pos, part.pos);
-  if (dist <= (p.radius + part.radius + sigma)) {
-    result += val;
-  }
-
-  if (dist <= p.radius * 2.238) {
-    result += part.interact(p, cosmax, 2 * val);
-  }
-
-  if (thread_idx >= p_cnt || thread_idx == p_idx) {
-    energies_dev[thread_idx] = result;
-    return;
-  }
-
-  particle_t const &part1 = particles[thread_idx];
-  double const dist1 = distance(p.pos, part.pos);
-  if (dist1 <= (p.radius + part1.radius + sigma)) {
-    result += val;
-  }
-
-  if (dist1 <= p.radius * 2.238) {
-    result += part1.interact(p, cosmax, 2 * val);
-  }
   energies_dev[thread_idx] = result;
 }
 
-double cell_view_t::particle_energy_square_well_device(particle_t const &p,
+__global__ void parallel_sum(double *energies_dev, size_t iter) {
+  size_t offset = 1 << (iter);
+  const unsigned thread_idx = (threadIdx.x + blockDim.x * blockIdx.x)
+                              << (iter + 1);
+  double d1 = energies_dev[thread_idx];
+  double d2 = energies_dev[thread_idx + offset];
+  energies_dev[thread_idx] = d1 + d2;
+}
+
+double cell_view_t::particle_energy_square_well_device(particle_t const p,
                                                        double const sigma,
                                                        double const val) {
   double result = 0.0F;
   unsigned blocks = 1;
-  unsigned threads = box.particle_count / 2;
-  if (box.particle_count >= 512) {
-    threads = 256;
-    blocks = box.particle_count / 512;
+  unsigned threads = box.particle_count >> 2;
+  if (box.particle_count > 1024) {
+    threads = 512;
+    blocks = box.particle_count >> 10;
   }
-  energy_square_well<<<blocks, threads>>>(p.idx, box.particles_device,
+  energy_square_well<<<blocks, threads>>>(p, box.particles_device,
                                           box.particle_count, energies_device,
                                           0.89, sigma, val);
-  cudaMemcpy(energies, energies_device, sizeof(double) * box.particle_count / 2,
+  size_t energy_cnt = box.particle_count >> 1;
+  parallel_sum<<<1, (energy_cnt >> 1)>>>(energies_device, 0);
+  parallel_sum<<<1, (energy_cnt >> 1)>>>(energies_device, 1);
+  cudaMemcpy(energies, energies_device, sizeof(double) * energy_cnt,
              cudaMemcpyDeviceToHost);
 
-  for (size_t i = 0; i < box.particle_count / 2; i++) {
+#pragma omp parallel for
+  for (size_t i = 0; i < energy_cnt; i += 4) {
     result += energies[i];
   }
   return result;
@@ -490,35 +504,25 @@ double cell_view_t::try_move_particle_device(size_t const p_idx,
     return 0;
   }
 
-  particle_t &part = box.particles[p_idx];
-  double3 const old_pos = part.pos;
+  particle_t const &part = box.particles[p_idx];
+  particle_t p{part};
 
-  double old_energy = particle_energy_square_well_device(part, 0.2, -1);
+  double old_energy = particle_energy_square_well_device(p, 0.2, -1);
 
-  part.pos = new_pos;
-  part.rotate(rotation);
-  box.update_particle(p_idx);
-  double new_energy = particle_energy_square_well_device(part, 0.2, -1);
+  p.pos = new_pos;
+  p.rotate(rotation);
+  double new_energy = particle_energy_square_well_device(p, 0.2, -1);
   double const d_energy = (new_energy - old_energy);
 
   double prob = exp(-(d_energy / temp));
-  part.pos = old_pos;
   if (prob_r >= prob) {
-    part.rotate({
-        .x = rotation.x,
-        .y = -rotation.y,
-        .z = -rotation.z,
-        .w = -rotation.w,
-    });
-
-    box.update_particle(p_idx);
     return 0;
   }
 
   remove_particle(part);
-  part.pos = new_pos;
+  box.particles[p_idx] = p;
   box.update_particle(p_idx);
-  add_particle(part);
+  add_particle(p);
   return d_energy;
 }
 
@@ -528,8 +532,10 @@ double cell_view_t::particle_energy_patch(particle_t const &p,
   const size_t cell_cnt = cells_per_axis * cells_per_axis * cells_per_axis;
   double result = 0.0F;
   double const dist = 2.238F * p.radius;
-  // check cell with particle, also neighboring cells by combining different
-  // combinations of -1, 0, 1 for each axis
+  // check cell with particle, also
+  // neighboring cells by combining
+  // different combinations of -1, 0, 1
+  // for each axis
   double3 coeff_val = {
       .x = ceil(dist / cell_size.x),
       .y = ceil(dist / cell_size.y),
