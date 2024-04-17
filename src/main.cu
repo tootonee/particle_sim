@@ -22,7 +22,7 @@
 // constexpr size_t PARTICLE_COUNT = 200;
 // constexpr size_t MOVES_PER_ITER = 200;
 constexpr size_t ITERATIONS = 10'000;
-constexpr size_t ITERATIONS_PER_EXPORT = 100;
+constexpr size_t ITERATIONS_PER_EXPORT = 250;
 constexpr size_t ITERATIONS_PER_GRF_EXPORT = 100;
 constexpr double TEMPERATURE = 0.8;
 // constexpr double TEMPERATURE = 3;
@@ -98,45 +98,47 @@ int main(int argc, char *argv[]) {
   std::random_device r;
   std::mt19937 re(r());
 
-  std::uniform_real_distribution<double> unif_x(0, 10);
-  std::uniform_real_distribution<double> unif_y(0, 10);
-  std::uniform_real_distribution<double> unif_z(0, 10);
-  cell_view_t view({10, 10, 10}, 10);
+  std::uniform_real_distribution<double> unif_x(0, 30);
+  std::uniform_real_distribution<double> unif_y(0, 30);
+  std::uniform_real_distribution<double> unif_z(0, 30);
+  cell_view_t view({30, 30, 30}, 6);
 
   // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
-    view.box.particles[i].add_patch({
-        .radius = 0.119,
-        .pos = {1, 1, 0, 0},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, -1, 0, 0},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 0, 1},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 0, -1},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 1, 0},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, -1, 0},
-    });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.119,
+    //     .pos = {1, 1, 0, 0},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, -1, 0, 0},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 0, 1},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 0, -1},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 1, 0},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, -1, 0},
+    // });
   }
+  std::cout << "Particle gen done!\n";
 
   double const rho =
       view.box.particle_count /
       (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
   std::map<double, double> distr{};
-  double init_energy = view.total_energy(0.2, -1);
+  // double init_energy = view.total_energy(0.2, -1);
+  double init_energy = 0;
   std::vector<double> energies;
 
   size_t N{};
@@ -167,15 +169,16 @@ int main(int argc, char *argv[]) {
     //     distr[radius] += value;
     //   }
     // }
-    //
-    // if (iters % ITERATIONS_PER_EXPORT == 0) {
-    //   const size_t idx = iters / ITERATIONS_PER_EXPORT;
-    //   char buf[16];
-    //   std::sprintf(buf, "data/%06li.pdb", idx);
-    //   export_particles_to_pdb(view.box, buf);
-    //   std::cout << "I = " << idx << ", energy = " << init_energy <<
-    //   std::endl;
-    // }
+
+    if (iters % ITERATIONS_PER_EXPORT == 0) {
+      const size_t idx = iters / ITERATIONS_PER_EXPORT;
+      // char buf[25];
+      // std::sprintf(buf, "data_cpu/%06li.pdb", idx);
+      // export_particles_to_pdb(view.box, buf);
+      // std::cout << "I = " << idx << ", energy = " << init_energy <<
+      // std::endl;
+      std::cout << "I = " << idx << std::endl;
+    }
 
     // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
     //   size_t const p_idx =

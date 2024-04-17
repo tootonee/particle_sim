@@ -62,8 +62,9 @@ struct particle_box_t {
 
     particle_t *dev = particles_device + p_idx;
     const particle_t *host = particles + p_idx;
-    gpuErrchk(
-        cudaMemcpy(dev, host, sizeof(particle_t), cudaMemcpyHostToDevice));
+    // gpuErrchk(
+    //     cudaMemcpy(dev, host, sizeof(particle_t), cudaMemcpyHostToDevice));
+    cudaMemcpy(dev, host, sizeof(particle_t), cudaMemcpyHostToDevice);
   }
 };
 #endif

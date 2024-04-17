@@ -10,6 +10,7 @@
 #include "patch.h"
 
 static constexpr size_t MAX_PARTICLES_PER_CELL = 255;
+static constexpr size_t MAX_PARTICLES_PER_CELL_ALIGNED = 256;
 using rng_gen = std::uniform_real_distribution<double>;
 
 struct cell_t {
@@ -21,6 +22,7 @@ struct cell_view_t {
   particle_box_t box{};
   cell_t *cells{};
   size_t cells_per_axis{};
+  size_t *cell_indices{};
   double3 cell_size{};
   double *energies_device{};
   double *energies{};
@@ -60,11 +62,10 @@ struct cell_view_t {
   double particle_energy_square_well(particle_t const &p,
                                      double const sigma = 0.2f,
                                      double const val = 1.0f);
+  double particle_energy_yukawa(particle_t const &p);
   double particle_energy_patch(particle_t const &p, double const cosmax = 0.92,
                                double const epsilon = 0.2);
-  double particle_energy_square_well_device(particle_t const p,
-                                            double const sigma = 0.2f,
-                                            double const val = 1.0f);
+  double particle_energy_yukawa_device(particle_t const p);
   double particles_in_range(const size_t idx, const double r1,
                             const double r2) const;
   double total_energy(double const sigma = 0.2F, double const val = 1.0F);
