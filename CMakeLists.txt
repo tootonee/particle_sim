@@ -23,9 +23,7 @@ project(${PROJECT_NAME} CXX CUDA)
 
 file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/include/*.h)
 
-
-add_executable(${PROJECT_NAME} 
-    ${CMAKE_SOURCE_DIR}/src/main.cu
+add_library(${PROJECT_NAME}_lib
     ${CMAKE_SOURCE_DIR}/src/particle.cu
     ${CMAKE_SOURCE_DIR}/src/particle_box.cu
     ${CMAKE_SOURCE_DIR}/src/pdb_export.cu
@@ -34,8 +32,28 @@ add_executable(${PROJECT_NAME}
     ${HEADERS}
 )
 
+target_include_directories(${PROJECT_NAME}_lib PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+set_target_properties(${PROJECT_NAME}_lib
+    PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_executable(${PROJECT_NAME} 
+    ${CMAKE_SOURCE_DIR}/src/main.cu
+    ${HEADERS})
+
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}_lib)
 set_target_properties(${PROJECT_NAME}
+    PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+add_executable(${PROJECT_NAME}_device
+    ${CMAKE_SOURCE_DIR}/src/main_device.cu
+    ${HEADERS})
+
+target_include_directories(${PROJECT_NAME}_device PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME}_device PUBLIC ${PROJECT_NAME}_lib)
+set_target_properties(${PROJECT_NAME}_device
     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 #[[ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11) ]]

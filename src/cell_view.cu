@@ -520,16 +520,29 @@ double cell_view_t::particle_energy_yukawa_device(particle_t const p) {
         }
 
         const size_t cell_idx = get_cell_idx((double3){x, y, z});
-
         cell_t const &cell = cells[cell_idx];
-        energy_yukawa_helper<<<1, cell.num_particles>>>(
-            p, cell_idx, cell_indices, box.particles_device, energies_device);
-        cudaMemcpy(energies, energies_device,
-                   sizeof(double) * MAX_PARTICLES_PER_CELL,
-                   cudaMemcpyDeviceToHost);
+
+        if (cell.num_particles < 65) {
 #pragma omp parallel for
-        for (size_t i = 0; i < cell.num_particles; i++) {
-          result += energies[i];
+          for (size_t i = 0; i < cell.num_particles; i++) {
+            particle_t const &part = box.particles[cell.particle_indices[i]];
+            if (part.idx == p.idx) {
+              continue;
+            }
+
+            double d_p_part = distance(p.pos, part.pos);
+            result += 0.5 * exp(-1.5 * (d_p_part - 1)) / d_p_part;
+          }
+        } else {
+          energy_yukawa_helper<<<1, cell.num_particles>>>(
+              p, cell_idx, cell_indices, box.particles_device, energies_device);
+          cudaMemcpy(energies, energies_device,
+                     sizeof(double) * MAX_PARTICLES_PER_CELL,
+                     cudaMemcpyDeviceToHost);
+#pragma omp parallel for
+          for (size_t i = 0; i < cell.num_particles; i++) {
+            result += energies[i];
+          }
         }
       }
     }

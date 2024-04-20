@@ -76,6 +76,11 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<double> unif_z(0, 30);
   cell_view_t view({30, 30, 30}, 6);
 
+  // std::uniform_real_distribution<double> unif_x(0, 10);
+  // std::uniform_real_distribution<double> unif_y(0, 10);
+  // std::uniform_real_distribution<double> unif_z(0, 10);
+  // cell_view_t view({10, 10, 10}, 2);
+
   // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
@@ -146,7 +151,7 @@ int main(int argc, char *argv[]) {
     if (iters % ITERATIONS_PER_EXPORT == 0) {
       const size_t idx = iters / ITERATIONS_PER_EXPORT;
       // char buf[25];
-      // std::sprintf(buf, "data_cpu/%06li.pdb", idx);
+      // std::sprintf(buf, "data/%06li.pdb", idx);
       // export_particles_to_pdb(view.box, buf);
       // std::cout << "I = " << idx << ", energy = " << init_energy <<
       // std::endl;
@@ -187,8 +192,8 @@ int main(int argc, char *argv[]) {
       double angle = hostFloats[r_idx + 5] * M_PI;
       double4 rotation =
           particle_t::random_particle_orient(angle, (i + iters) % 3);
-      init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
-                                            TEMPERATURE);
+      init_energy += view.try_move_particle_device(p_idx, new_pos, rotation,
+                                                   prob_rand, TEMPERATURE);
     }
     energies.push_back(init_energy);
   }
