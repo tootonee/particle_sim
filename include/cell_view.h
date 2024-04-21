@@ -56,18 +56,22 @@ struct cell_view_t {
                                    double3 const offset,
                                    double const scale = 2.0F);
 
+  bool add_particle_async(particle_t const &p);
   bool add_particle(particle_t const &p);
   void remove_particle(particle_t const &p);
   void remove_particle_from_box(particle_t const &p);
   double particle_energy_square_well(particle_t const &p,
                                      double const sigma = 0.2f,
                                      double const val = 1.0f);
+  double particle_energy_patch_device(particle_t const p);
   double particle_energy_yukawa(particle_t const &p);
   double particle_energy_patch(particle_t const &p, double const cosmax = 0.92,
                                double const epsilon = 0.2);
   double particle_energy_yukawa_device(particle_t const p);
   double particles_in_range(const size_t idx, const double r1,
                             const double r2) const;
+  double particles_in_range_device(const size_t idx, const double r1,
+                                   const double r2) const;
   double total_energy(double const sigma = 0.2F, double const val = 1.0F);
   double try_move_particle(size_t const p_idx, double3 const new_pos,
                            double4 const rotation, double prob_r, double temp);

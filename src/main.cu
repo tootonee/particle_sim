@@ -33,7 +33,7 @@ std::map<double, double> do_distr(cell_view_t const &view,
   while (radius < max_r) {
     double num = 0.0F;
     for (size_t p_idx = 0; p_idx < view.box.particle_count; p_idx++) {
-      num += view.particles_in_range(p_idx, radius, radius + dr);
+      num += view.particles_in_range_device(p_idx, radius, radius + dr);
     }
     v_old = v_new;
     radius += dr;
@@ -79,30 +79,30 @@ int main(int argc, char *argv[]) {
   // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.119,
-    //     .pos = {1, 1, 0, 0},
-    // });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, -1, 0, 0},
-    // });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, 0, 0, 1},
-    // });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, 0, 0, -1},
-    // });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, 0, 1, 0},
-    // });
-    // view.box.particles[i].add_patch({
-    //     .radius = 0.05,
-    //     .pos = {1, 0, -1, 0},
-    // });
+    view.box.particles[i].add_patch({
+        .radius = 0.119,
+        .pos = {1, 1, 0, 0},
+    });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, -1, 0, 0},
+    });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, 0, 1},
+    });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, 0, -1},
+    });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, 1, 0},
+    });
+    view.box.particles[i].add_patch({
+        .radius = 0.05,
+        .pos = {1, 0, -1, 0},
+    });
   }
   std::cout << "Particle gen done!\n";
 
@@ -148,16 +148,18 @@ int main(int argc, char *argv[]) {
       // char buf[25];
       // std::sprintf(buf, "data_cpu/%06li.pdb", idx);
       // export_particles_to_pdb(view.box, buf);
-      // std::cout << "I = " << idx << ", energy = " << init_energy <<
-      // std::endl;
-      std::cout << "I = " << idx << std::endl;
+      std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
     }
-
+    //
     // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
     //   size_t const p_idx =
     //       static_cast<size_t>(unif_r(re) * view.box.particle_count) %
     //       view.box.particle_count;
-    //   double const offset = unif_r(re) - 0.5;
+    //   double3 const offset = {
+    //       .x = unif_r(re) - 0.5,
+    //       .y = unif_r(re) - 0.5,
+    //       .z = unif_r(re) - 0.5,
+    //   };
     //   double3 const new_pos =
     //       view.try_random_particle_disp(p_idx, offset, MAX_STEP);
     //   double const prob_rand = unif_r(re);
@@ -190,7 +192,7 @@ int main(int argc, char *argv[]) {
       init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
                                             TEMPERATURE);
     }
-    energies.push_back(init_energy);
+    // energies.push_back(init_energy);
   }
 
   auto finish = getCurrentTimeFenced();

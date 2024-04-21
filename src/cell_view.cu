@@ -25,6 +25,23 @@ void cell_view_t::free() {
   cudaFree(cell_indices);
 }
 
+bool cell_view_t::add_particle_async(particle_t const &p) {
+  size_t cell_idx = get_cell_idx(p.pos);
+  if (cell_idx >= cells_per_axis * cells_per_axis * cells_per_axis) {
+    return false;
+  }
+  cell_t &cell = cells[cell_idx];
+  if (cell.num_particles >= MAX_PARTICLES_PER_CELL) {
+    return false;
+  }
+  cell.particle_indices[cell.num_particles] = p.idx;
+  cell.num_particles += 1;
+  cudaMemcpyAsync(cell_indices + cell_idx * MAX_PARTICLES_PER_CELL,
+                  cell.particle_indices, sizeof(size_t) * cell.num_particles,
+                  cudaMemcpyHostToDevice);
+  return true;
+}
+
 bool cell_view_t::add_particle(particle_t const &p) {
   size_t cell_idx = get_cell_idx(p.pos);
   if (cell_idx >= cells_per_axis * cells_per_axis * cells_per_axis) {
@@ -408,6 +425,63 @@ inline constexpr void check_scale(double &min_scale, int &cur_dir,
   }
 }
 
+__global__ void in_range_helper(size_t p_idx, double r1, double r2,
+                                double3 box_size, size_t p_count,
+                                particle_t *particles, double *vals) {
+  size_t thread_idx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (thread_idx >= p_count) {
+    return;
+  }
+  if (thread_idx == p_idx) {
+    vals[thread_idx] = 0;
+    return;
+  }
+  double result = 0;
+  particle_t const &p = particles[p_idx];
+  particle_t const &part = particles[thread_idx];
+  for (double coeff_x = -1; coeff_x < 2; coeff_x += 1) {
+    for (double coeff_y = -1; coeff_y < 2; coeff_y += 1) {
+      for (double coeff_z = -1; coeff_z < 2; coeff_z += 1) {
+        const double3 p_pos = {
+            .x = part.pos.x + box_size.x * coeff_x,
+            .y = part.pos.y + box_size.y * coeff_y,
+            .z = part.pos.z + box_size.z * coeff_z,
+        };
+
+        const double dist = distance(p_pos, p.pos);
+        if (dist <= r2 && dist >= r1) {
+          result += 1;
+        }
+      }
+    }
+  }
+  vals[thread_idx] = result;
+}
+
+double cell_view_t::particles_in_range_device(const size_t idx, const double r1,
+                                              const double r2) const {
+  double *n_part{};
+  cudaMalloc(&n_part, sizeof(double) * box.particle_count);
+  double *n_part_host = new double[box.particle_count];
+  double result = 0.0L;
+  size_t blocks = box.particle_count / 256 + 1;
+  size_t threads = 256;
+
+  in_range_helper<<<blocks, threads>>>(idx, r1, r2, box.dimensions,
+                                       box.particle_count, box.particles_device,
+                                       n_part);
+  cudaMemcpy(n_part_host, n_part, sizeof(double) * box.particle_count,
+             cudaMemcpyDeviceToHost);
+  cudaFree(n_part);
+#pragma omp unroll partial
+  for (size_t i = 0; i < box.particle_count; i++) {
+    result += n_part_host[i];
+  }
+  delete[] n_part_host;
+
+  return result;
+}
+
 double cell_view_t::particles_in_range(const size_t idx, const double r1,
                                        const double r2) const {
   double result = 0.0L;
@@ -483,14 +557,14 @@ __global__ void energy_yukawa_helper(particle_t const p, size_t cell_idx,
 
 double cell_view_t::particle_energy_yukawa_device(particle_t const p) {
   double const dist = 6;
-  int3 coeff_val = {
-      .x = static_cast<int>(ceil(dist / cell_size.x)),
-      .y = static_cast<int>(ceil(dist / cell_size.y)),
-      .z = static_cast<int>(ceil(dist / cell_size.z)),
+  double3 coeff_val = {
+      .x = ceil(dist / cell_size.x),
+      .y = ceil(dist / cell_size.y),
+      .z = ceil(dist / cell_size.z),
   };
 
   double result = 0.0F;
-#pragma omp parallel for
+#pragma omp unroll partial
   for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
     double x = p.pos.x + coeff_x * cell_size.x;
     if (x < 0) {
@@ -499,7 +573,7 @@ double cell_view_t::particle_energy_yukawa_device(particle_t const p) {
     if (x >= box.dimensions.x) {
       x -= box.dimensions.x;
     }
-#pragma omp parallel for
+#pragma omp unroll partial
     for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
       double y = p.pos.y + coeff_y * cell_size.y;
       if (y < 0) {
@@ -508,7 +582,7 @@ double cell_view_t::particle_energy_yukawa_device(particle_t const p) {
       if (y >= box.dimensions.y) {
         y -= box.dimensions.y;
       }
-#pragma omp parallel for
+#pragma omp unroll partial
       for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
            coeff_z += 1) {
         double z = p.pos.z + coeff_z * cell_size.z;
@@ -523,7 +597,7 @@ double cell_view_t::particle_energy_yukawa_device(particle_t const p) {
         cell_t const &cell = cells[cell_idx];
 
         if (cell.num_particles < 65) {
-#pragma omp parallel for
+#pragma omp unroll partial
           for (size_t i = 0; i < cell.num_particles; i++) {
             particle_t const &part = box.particles[cell.particle_indices[i]];
             if (part.idx == p.idx) {
@@ -539,7 +613,96 @@ double cell_view_t::particle_energy_yukawa_device(particle_t const p) {
           cudaMemcpy(energies, energies_device,
                      sizeof(double) * MAX_PARTICLES_PER_CELL,
                      cudaMemcpyDeviceToHost);
-#pragma omp parallel for
+#pragma omp unroll partial
+          for (size_t i = 0; i < cell.num_particles; i++) {
+            result += energies[i];
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+__global__ void interact_helper(particle_t const p, size_t cell_idx,
+                                size_t const *p_indices,
+                                particle_t const *particles,
+                                double *p_energies) {
+  const int t_idx = threadIdx.x;
+  size_t thr_idx = cell_idx * MAX_PARTICLES_PER_CELL + t_idx;
+  const size_t p_idx = p_indices[thr_idx];
+  if (p.idx == p_idx) {
+    p_energies[t_idx] = 0;
+    return;
+  }
+  const particle_t &part = particles[p_idx];
+  const double dist = distance(part.pos, p.pos);
+  if (dist >= 1.119) {
+    p_energies[t_idx] = 0;
+    return;
+  }
+  const double res = p.interact(part, 0.89, -250);
+  p_energies[t_idx] = res;
+}
+
+double cell_view_t::particle_energy_patch_device(particle_t const p) {
+  double const dist = 1.5;
+  double3 coeff_val = {
+      .x = ceil(dist / cell_size.x),
+      .y = ceil(dist / cell_size.y),
+      .z = ceil(dist / cell_size.z),
+  };
+
+  double result = 0.0F;
+#pragma omp unroll partial
+  for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
+    double x = p.pos.x + coeff_x * cell_size.x;
+    if (x < 0) {
+      x += box.dimensions.x;
+    }
+    if (x >= box.dimensions.x) {
+      x -= box.dimensions.x;
+    }
+#pragma omp unroll partial
+    for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
+      double y = p.pos.y + coeff_y * cell_size.y;
+      if (y < 0) {
+        y += box.dimensions.y;
+      }
+      if (y >= box.dimensions.y) {
+        y -= box.dimensions.y;
+      }
+#pragma omp unroll partial
+      for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
+           coeff_z += 1) {
+        double z = p.pos.z + coeff_z * cell_size.z;
+        if (z < 0) {
+          z += box.dimensions.z;
+        }
+        if (z >= box.dimensions.z) {
+          z -= box.dimensions.z;
+        }
+
+        const size_t cell_idx = get_cell_idx((double3){x, y, z});
+        cell_t const &cell = cells[cell_idx];
+
+        if (cell.num_particles < 65) {
+#pragma omp unroll partial
+          for (size_t i = 0; i < cell.num_particles; i++) {
+            particle_t const &part = box.particles[cell.particle_indices[i]];
+            if (part.idx == p.idx || distance(p.pos, part.pos) >= 1.119) {
+              continue;
+            }
+
+            result += p.interact(part);
+          }
+        } else {
+          interact_helper<<<1, cell.num_particles>>>(
+              p, cell_idx, cell_indices, box.particles_device, energies_device);
+          cudaMemcpy(energies, energies_device,
+                     sizeof(double) * MAX_PARTICLES_PER_CELL,
+                     cudaMemcpyDeviceToHost);
+#pragma omp unroll partial
           for (size_t i = 0; i < cell.num_particles; i++) {
             result += energies[i];
           }
@@ -561,12 +724,16 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
   particle_t &part = box.particles[p_idx];
 
   double old_energy = particle_energy_yukawa(part);
+  // double old_energy =
+  //     particle_energy_yukawa(part) + particle_energy_patch(part, 0.89, -2);
   // double old_energy = particle_energy_square_well(part, 0.2, -1) +
   //                     particle_energy_patch(part, 0.89, -2);
 
   part.pos = new_pos;
   part.rotate(rotation);
   double new_energy = particle_energy_yukawa(part);
+  // double new_energy =
+  //     particle_energy_yukawa(part) + particle_energy_patch(part, 0.89, -2);
   // double new_energy = particle_energy_square_well(part, 0.2, -1) +
   //                     particle_energy_patch(part, 0.89, -2);
   part.pos = old_pos;
@@ -599,10 +766,14 @@ double cell_view_t::try_move_particle_device(size_t const p_idx,
   particle_t p{part};
 
   double old_energy = particle_energy_yukawa_device(p);
+  // double old_energy =
+  //     particle_energy_yukawa_device(p) + particle_energy_patch_device(p);
 
   p.pos = new_pos;
   p.rotate(rotation);
   double new_energy = particle_energy_yukawa_device(p);
+  // double new_energy =
+  //     particle_energy_yukawa_device(p) + particle_energy_patch_device(p);
   double const d_energy = (new_energy - old_energy);
 
   double prob = exp(-(d_energy / temp));
@@ -612,8 +783,9 @@ double cell_view_t::try_move_particle_device(size_t const p_idx,
 
   remove_particle(part);
   box.particles[p_idx] = p;
-  box.update_particle(p_idx);
-  add_particle(p);
+  box.update_particle_async(p_idx);
+  add_particle_async(p);
+  cudaDeviceSynchronize();
   return d_energy;
 }
 

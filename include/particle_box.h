@@ -55,6 +55,18 @@ struct particle_box_t {
                cudaMemcpyHostToDevice);
   }
 
+  inline void update_particle_async(size_t p_idx) {
+    if (p_idx >= capacity) {
+      return;
+    }
+
+    particle_t *dev = particles_device + p_idx;
+    const particle_t *host = particles + p_idx;
+    // gpuErrchk(
+    //     cudaMemcpy(dev, host, sizeof(particle_t), cudaMemcpyHostToDevice));
+    cudaMemcpyAsync(dev, host, sizeof(particle_t), cudaMemcpyHostToDevice);
+  }
+
   inline void update_particle(size_t p_idx) {
     if (p_idx >= capacity) {
       return;
