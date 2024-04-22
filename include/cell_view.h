@@ -9,8 +9,7 @@
 #include "particle_box.h"
 #include "patch.h"
 
-static constexpr size_t MAX_PARTICLES_PER_CELL = 255;
-static constexpr size_t MAX_PARTICLES_PER_CELL_ALIGNED = 256;
+static constexpr size_t MAX_PARTICLES_PER_CELL = 2047;
 using rng_gen = std::uniform_real_distribution<double>;
 
 struct cell_t {

@@ -1,10 +1,10 @@
 reset
 # set terminal postscript eps size 4.0,3.0 enhanced color font 'Helvetica,18' linewidth 2
 # set output 'plot_rdf.eps'
-# set terminal png font 'Helvetica,18' linewidth 2
-# set output 'plot_rdf.png'
-set terminal svg font 'Helvetica,14' linewidth 2
-set output 'plot_rdf.svg'
+set terminal png font 'Helvetica,18' linewidth 2
+set output 'rdf_gpu.png'
+# set terminal svg font 'Helvetica,14' linewidth 2
+# set output 'plot_rdf.svg'
 set lmargin 7
 set rmargin 1
 set ylabel "g(r)" font ",24" offset 2,0
@@ -13,8 +13,8 @@ set xtics font ", 20"  offset 0.0, 0.5
 set ytics font ", 20"  offset 0.5, 0.0
 set tics scale 1.5 out nomirror
 set grid
-set label "A: HS + SQW (w=0.2) + Kern-Frenkel (2 patches)" left at graph 0.25, graph 0.75 front
+set label "A: Yukawa" left at graph 0.4, graph 0.75 front
 #set label "A: HS" left at graph 0.65, graph 0.75 front
-set label "{/Symbol r}_{A} = 0.20; T = 0.65" left at graph 0.25, graph 0.65 front
+set label "{/Symbol r}_{A} = 0.5925; T = 4" left at graph 0.4, graph 0.65 front
 #set label "{/Symbol r}_{A} = 0.50" left at graph 0.65, graph 0.65 front
-pl[0:5.0][0:6.0] 'output.dat' with lines lw 1.5 lt 1 lc rgb 'red' title "A - A"
+pl[0:8.0][0:3.0] 'output.dat' with lines lw 1.5 lt 1 lc rgb 'red' title "A - A"

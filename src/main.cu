@@ -27,17 +27,15 @@ std::map<double, double> do_distr(cell_view_t const &view,
                                   double const max_r = 5L) {
   std::map<double, double> distr{};
   double radius = start;
-  double v_old = 0;
-  double v_new = radius * radius * radius;
 
-  while (radius < max_r) {
+  for (radius = start; radius < max_r; radius += dr) {
+    std::cout << "Prog = " << (radius - start) / (max_r - start) * 100 << "%\n";
     double num = 0.0F;
     for (size_t p_idx = 0; p_idx < view.box.particle_count; p_idx++) {
       num += view.particles_in_range_device(p_idx, radius, radius + dr);
     }
-    v_old = v_new;
-    radius += dr;
-    v_new = radius * radius * radius;
+    double v_old = (radius - dr) * (radius - dr) * (radius - dr);
+    double v_new = radius * radius * radius;
     double const val = 3 * num / (4 * M_PI * rho * (v_new - v_old));
     distr[radius] = val / view.box.particle_count;
   }
@@ -71,10 +69,15 @@ int main(int argc, char *argv[]) {
   std::random_device r;
   std::mt19937 re(r());
 
-  std::uniform_real_distribution<double> unif_x(0, 30);
-  std::uniform_real_distribution<double> unif_y(0, 30);
-  std::uniform_real_distribution<double> unif_z(0, 30);
-  cell_view_t view({30, 30, 30}, 6);
+  // std::uniform_real_distribution<double> unif_x(0, 30);
+  // std::uniform_real_distribution<double> unif_y(0, 30);
+  // std::uniform_real_distribution<double> unif_z(0, 30);
+  // cell_view_t view({30, 30, 30}, 6);
+
+  std::uniform_real_distribution<double> unif_x(0, 15);
+  std::uniform_real_distribution<double> unif_y(0, 15);
+  std::uniform_real_distribution<double> unif_z(0, 15);
+  cell_view_t view({15, 15, 15}, 2);
 
   // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
@@ -87,22 +90,22 @@ int main(int argc, char *argv[]) {
         .radius = 0.05,
         .pos = {1, -1, 0, 0},
     });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 0, 1},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 0, -1},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, 1, 0},
-    });
-    view.box.particles[i].add_patch({
-        .radius = 0.05,
-        .pos = {1, 0, -1, 0},
-    });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 0, 1},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 0, -1},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, 1, 0},
+    // });
+    // view.box.particles[i].add_patch({
+    //     .radius = 0.05,
+    //     .pos = {1, 0, -1, 0},
+    // });
   }
   std::cout << "Particle gen done!\n";
 
@@ -136,19 +139,19 @@ int main(int argc, char *argv[]) {
 
   start = getCurrentTimeFenced();
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
-    // if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-    //   std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 5);
-    //   for (const auto &[radius, value] : tmp_distr) {
-    //     distr[radius] += value;
-    //   }
-    // }
-
     if (iters % ITERATIONS_PER_EXPORT == 0) {
       const size_t idx = iters / ITERATIONS_PER_EXPORT;
-      // char buf[25];
-      // std::sprintf(buf, "data_cpu/%06li.pdb", idx);
-      // export_particles_to_pdb(view.box, buf);
-      std::cout << "I = " << idx << ", energy = " << init_energy << std::endl;
+      char buf[25];
+      std::sprintf(buf, "data_cpu/%06li.pdb", idx);
+      export_particles_to_pdb(view.box, buf);
+      std::cout << "I = " << iters << ", energy = " << init_energy << std::endl;
+    }
+
+    if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
+      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 8);
+      for (const auto &[radius, value] : tmp_distr) {
+        distr[radius] += value;
+      }
     }
     //
     // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
@@ -199,7 +202,7 @@ int main(int argc, char *argv[]) {
   auto total_time = finish - start;
   std::cout << "TIME " << to_us(total_time) << std::endl;
 
-  std::ofstream other_file("output.dat");
+  std::ofstream other_file("output_cpu.dat");
   other_file << std::fixed << std::setprecision(6);
   double const coeff = ITERATIONS / ITERATIONS_PER_GRF_EXPORT;
   for (const auto &[r, val] : distr) {

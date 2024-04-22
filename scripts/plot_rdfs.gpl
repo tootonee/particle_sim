@@ -1,0 +1,32 @@
+reset
+# set terminal postscript eps size 4.0,3.0 enhanced color font 'Helvetica,18' linewidth 2
+# set output 'plot_rdf.eps'
+set terminal svg font 'Helvetica,14' linewidth 2
+# set terminal png font 'Helvetica,18' linewidth 2
+set output 'rdf_gpu.svg'
+set lmargin 7
+set rmargin 1
+set ylabel "g(r)" font ",24" offset 2,0
+set xlabel "r" font ",24" offset 0,1
+set xtics font ", 20"  offset 0.0, 0.5
+set ytics font ", 20"  offset 0.5, 0.0
+set tics scale 1.5 out nomirror
+set grid
+set label "A: Yukawa" left at graph 0.4, graph 0.75 front
+set label "{/Symbol r}_{A} = 0.5925; T = 4" left at graph 0.4, graph 0.65 front
+pl[0:8.0][0:3.0] 'output.dat' with lines lw 1.5 lt 1 lc rgb 'red' title "A - A"
+
+# set terminal png font 'Helvetica,18' linewidth 2
+set terminal svg font 'Helvetica,14' linewidth 2
+set output 'rdf_cpu.svg'
+set lmargin 7
+set rmargin 1
+set ylabel "g(r)" font ",24" offset 2,0
+set xlabel "r" font ",24" offset 0,1
+set xtics font ", 20"  offset 0.0, 0.5
+set ytics font ", 20"  offset 0.5, 0.0
+set tics scale 1.5 out nomirror
+set grid
+set label "A: Yukawa" left at graph 0.4, graph 0.75 front
+set label "{/Symbol r}_{A} = 0.5925; T = 4" left at graph 0.4, graph 0.65 front
+pl[0:8.0][0:3.0] 'output_cpu.dat' with lines lw 1.5 lt 1 lc rgb 'red' title "A - A"
