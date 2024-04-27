@@ -23,17 +23,9 @@ Make sure that you also have proper hardware and drivers installed.
 
 This compilation is straightforward 
 
-1. Make sure you have `cmake >= 3.15`
+Make sure you have `cmake >= 3.15`
 
-2. ```sh 
+```sh 
 cmake -B build
 cmake --build build -j$(nproc)
 ```
-<!---->
-<!-- ## Usage -->
-<!---->
-<!-- Just specify the number of particles  -->
-<!---->
-<!-- ```sh  -->
-<!---->
-<!-- ``` -->
