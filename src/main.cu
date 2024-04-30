@@ -158,20 +158,23 @@ int main(int argc, char *argv[]) {
     //   size_t const p_idx =
     //       static_cast<size_t>(unif_r(re) * view.box.particle_count) %
     //       view.box.particle_count;
-    //   double3 const offset = {
-    //       .x = unif_r(re) - 0.5,
-    //       .y = unif_r(re) - 0.5,
-    //       .z = unif_r(re) - 0.5,
-    //   };
-    //   double3 const new_pos =
-    //       view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-    //   double const prob_rand = unif_r(re);
-    //   double angle = unif_r(re) * M_PI;
-    //   double4 rotation =
-    //       particle_t::random_particle_orient(angle, (i + iters) % 3);
-    //   init_energy += view.try_move_particle(p_idx, new_pos, rotation,
-    //   prob_rand,
-    //                                         TEMPERATURE);
+    // double const x = unif_r(re) - 0.5;
+    // double const y = unif_r(re) - 0.5;
+    // double const z = sqrt(1 - x * x - y * y);
+    // double3 const offset = {
+    //     .x = x,
+    //     .y = y,
+    //     .z = z,
+    // };
+    // double3 const new_pos =
+    //     view.try_random_particle_disp(p_idx, offset, MAX_STEP);
+    // double const prob_rand = unif_r(re);
+    // double angle = unif_r(re) * M_PI;
+    // double4 rotation =
+    //     particle_t::random_particle_orient(angle, (i + iters) % 3);
+    // init_energy += view.try_move_particle(p_idx, new_pos, rotation,
+    // prob_rand,
+    //                                       TEMPERATURE);
     // }
 
     gen.generate_random_numbers();
@@ -181,10 +184,13 @@ int main(int argc, char *argv[]) {
       size_t const p_idx =
           static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
           view.box.particle_count;
+      double const x = hostFloats[r_idx + 1] - 0.5;
+      double const y = hostFloats[r_idx + 2] - 0.5;
+      double const z = sqrt(1 - x * x - y * y);
       double3 const offset = {
-          .x = hostFloats[r_idx + 1] - 0.5,
-          .y = hostFloats[r_idx + 2] - 0.5,
-          .z = hostFloats[r_idx + 3] - 0.5,
+          .x = x,
+          .y = y,
+          .z = z,
       };
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, offset, MAX_STEP);

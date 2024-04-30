@@ -176,10 +176,15 @@ int main(int argc, char *argv[]) {
       size_t const p_idx =
           static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
           view.box.particle_count;
+      double const r = view.box.particles[p_idx].radius;
+      // double const z =
+      double const x = hostFloats[r_idx + 1] - 0.5;
+      double const y = hostFloats[r_idx + 2] - 0.5;
+      double const z = sqrt(1 - x * x - y * y);
       double3 const offset = {
-          .x = hostFloats[r_idx + 1] - 0.5,
-          .y = hostFloats[r_idx + 2] - 0.5,
-          .z = hostFloats[r_idx + 3] - 0.5,
+          .x = x,
+          .y = y,
+          .z = z,
       };
       double3 const new_pos =
           view.try_random_particle_disp(p_idx, offset, MAX_STEP);
