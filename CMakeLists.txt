@@ -29,6 +29,7 @@ add_library(${PROJECT_NAME}_lib
     ${CMAKE_SOURCE_DIR}/src/pdb_export.cu
     ${CMAKE_SOURCE_DIR}/src/cell_view.cu
     ${CMAKE_SOURCE_DIR}/src/export_to_lammps.cu
+    ${CMAKE_SOURCE_DIR}/src/muvt.cu
     ${HEADERS}
 )
 

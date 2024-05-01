@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
     view.add_particle_random_pos(0.5, unif_x, unif_y, unif_z, re);
     view.box.particles[i].add_patch({
-        .radius = 0.119,
+        .radius = 0.05,
         .pos = {1, 1, 0, 0},
     });
     view.box.particles[i].add_patch({
@@ -148,6 +148,9 @@ int main(int argc, char *argv[]) {
     }
 
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
+      //pho move
+      double const rho = view.box.particle_count /
+            (view.box.dimensions.x * view.box.dimensions.y * view.box.dimensions.z);
       std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.01L, 8);
       for (const auto &[radius, value] : tmp_distr) {
         distr[radius] += value;
@@ -176,26 +179,33 @@ int main(int argc, char *argv[]) {
 
     gen.generate_random_numbers();
     gen.copyToHost(hostFloats);
-    for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-      size_t const r_idx = i * 6;
-      size_t const p_idx =
-          static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
-          view.box.particle_count;
-      double3 const offset = {
-          .x = hostFloats[r_idx + 1] - 0.5,
-          .y = hostFloats[r_idx + 2] - 0.5,
-          .z = hostFloats[r_idx + 3] - 0.5,
-      };
-      double3 const new_pos =
-          view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-      double const prob_rand = hostFloats[r_idx + 4];
-      double angle = hostFloats[r_idx + 5] * M_PI;
-      double4 rotation =
-          particle_t::random_particle_orient(angle, (i + iters) % 3);
-      init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
-                                            TEMPERATURE);
+    std::uniform_real_distribution<double> choice_muvt(0.0, 1.0);
+    double choice_probability = choice_muvt(re); //moving/rotation or adding/removing
+    if (choice_probability < 0.5) {
+      for (size_t i = 0; i < MOVES_PER_ITER; i++) { //think if we need it outside
+        size_t const r_idx = i * 6;
+        size_t const p_idx =
+            static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
+            view.box.particle_count;
+        double3 const offset = {
+            .x = hostFloats[r_idx + 1] - 0.5,
+            .y = hostFloats[r_idx + 2] - 0.5,
+            .z = hostFloats[r_idx + 3] - 0.5,
+        };
+        double3 const new_pos =
+            view.try_random_particle_disp(p_idx, offset, MAX_STEP);
+        double const prob_rand = hostFloats[r_idx + 4];
+        double angle = hostFloats[r_idx + 5] * M_PI;
+        double4 rotation =
+            particle_t::random_particle_orient(angle, (i + iters) % 3);
+        init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
+                                              TEMPERATURE);
+      }
+    } else {
+      init_energy += view.add_particle_muvt(unif_x, unif_y, unif_z, re);
     }
-    // energies.push_back(init_energy);
+
+    energies.push_back(init_energy);
   }
 
   auto finish = getCurrentTimeFenced();
