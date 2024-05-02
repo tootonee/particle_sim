@@ -191,7 +191,8 @@ __global__ void simulateParticleMovementsKernel(
                 .y = deviceFloats[r_idx + 2] - 0.5,
                 .z = deviceFloats[r_idx + 3] - 0.5,
         };
-        deviceMovements[r_idx] = {p_idx, offset};
+        size_t outputIndex = idx * movesPerIter + moveIdx;
+        deviceMovements[outputIndex] = {p_idx, offset};
     }
 }
 
