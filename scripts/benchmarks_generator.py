@@ -4,7 +4,7 @@ import os
 
 parameters_init = list(range(1, 250, 20))
 parameters_after = list(range(261, 1200, 50))
-exe_files = ['./build/particle_sim', './build/particle_sim_fast']
+exe_files = ['./build/particle_sim_queue', './build/particle_sim']
 
 def calculating():
     for exe_file in exe_files:

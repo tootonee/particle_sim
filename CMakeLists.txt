@@ -47,6 +47,16 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}_lib)
 set_target_properties(${PROJECT_NAME}
     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
+add_executable(${PROJECT_NAME}_queue 
+    ${CMAKE_SOURCE_DIR}/src/main_queue.cu
+    ${HEADERS})
+
+target_include_directories(${PROJECT_NAME}_queue PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME}_queue PUBLIC ${PROJECT_NAME}_lib)
+set_target_properties(${PROJECT_NAME}_queue
+    PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
 add_executable(${PROJECT_NAME}_device
     ${CMAKE_SOURCE_DIR}/src/main_device.cu
     ${HEADERS})
@@ -56,4 +66,5 @@ target_include_directories(${PROJECT_NAME}_device PRIVATE
 target_link_libraries(${PROJECT_NAME}_device PUBLIC ${PROJECT_NAME}_lib)
 set_target_properties(${PROJECT_NAME}_device
     PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
 #[[ target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11) ]]

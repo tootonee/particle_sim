@@ -29,7 +29,7 @@ std::map<double, double> do_distr(cell_view_t const &view,
   double radius = start;
 
   for (radius = start; radius < max_r; radius += dr) {
-    std::cout << "Prog = " << (radius - start) / (max_r - start) * 100 << "%\n";
+    // std::cout << "Prog = " << (radius - start) / (max_r - start) * 100 << "%\n";
     double num = 0.0F;
     for (size_t p_idx = 0; p_idx < view.box.particle_count; p_idx++) {
       num += view.particles_in_range_device(p_idx, radius, radius + dr);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<double> unif_x(0, 15);
   std::uniform_real_distribution<double> unif_y(0, 15);
   std::uniform_real_distribution<double> unif_z(0, 15);
-  cell_view_t view({15, 15, 15}, 2);
+  cell_view_t view({15, 15, 15}, 5);
 
   // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
       char buf[25];
       std::sprintf(buf, "data/%06li.pdb", idx);
       export_particles_to_pdb(view.box, buf);
-      std::cout << "I = " << iters << ", energy = " << init_energy << std::endl;
+      // std::cout << "I = " << iters << ", energy = " << init_energy << std::endl;
     }
 
     if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {

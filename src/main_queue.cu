@@ -24,6 +24,8 @@
 #include "thread_pool.h"
 #include <future>
 #include <memory>
+#include <mutex>
+
 
 std::map<double, double> do_distr(cell_view_t const &view,
                                   double const rho = 0.5L,
@@ -82,7 +84,7 @@ int main(int argc, char *argv[]) {
   std::uniform_real_distribution<double> unif_x(0, 15);
   std::uniform_real_distribution<double> unif_y(0, 15);
   std::uniform_real_distribution<double> unif_z(0, 15);
-  cell_view_t view({10, 10, 10}, 4);
+  cell_view_t view({15, 15, 15}, 4);
 
   // thread_pool pool;
   // std::vector<std::future<double>> futures;
@@ -185,12 +187,15 @@ int main(int argc, char *argv[]) {
   // }
 
 
-  // ThreadSafeQueue<double> results;
-  // ThreadSafeQueue<Task> tasks;
-  // std::vector<std::thread> workers;
-    // for (int i = 0; i < NUMTHREADS; ++i) {
-    //     workers.emplace_back(worker, std::ref(tasks), std::ref(results));
-    // }
+  ThreadSafeQueue<double> results;
+  ThreadSafeQueue<Task> tasks;
+  std::vector<std::thread> workers;
+  std::mutex mutex;
+
+
+    for (int i = 0; i < NUMTHREADS; ++i) {
+        workers.emplace_back(worker, std::ref(tasks), std::ref(results), std::ref(mutex));
+    }
   int sequential_index = 0;
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
     if (iters % ITERATIONS_PER_EXPORT == 0) {
@@ -246,58 +251,59 @@ int main(int argc, char *argv[]) {
 /// <---------------------------------------------------------------
 /// CODE FOR SAFE QUEUE;
 
-    // gen.generate_random_numbers();
-    // gen.copyToHost(hostFloats);
-    // sequential_index = 0;
+    gen.generate_random_numbers();
+    gen.copyToHost(hostFloats);
+    sequential_index = 0;
+    std::vector<Task> task_vector;
+    while(sequential_index < MOVES_PER_ITER){
+      domain = unif_domain(re);
+      for (auto cell : domain_decomposition[domain]){
+        num_particles = view.cells[cell].num_particles;
+        particle_idx = view.cells[cell].particle_indices[(int)(num_particles * unif_r(re))];
+        Task task = {
+          view,
+          particle_idx,
+          iters,
+          sequential_index,
+          hostFloats,
+          TEMPERATURE,
+          false,
+        };
+        sequential_index++;
+        tasks.push(task);
+      }
+      for( int i = 0; i < domain_decomposition[domain].size(); i++){
+      std::shared_ptr<double> result = results.wait_and_pop();
+      init_energy += *result;
+     }
+    }
 
-    // while(sequential_index < MOVES_PER_ITER){
-    //   domain = unif_domain(re);
-    //   for (auto cell : domain_decomposition[domain]){
-    //     num_particles = view.cells[cell].num_particles;
-    //     particle_idx = view.cells[cell].particle_indices[(int)(num_particles * unif_r(re))];
-    //     Task task = {
-    //       view,
-    //       particle_idx,
-    //       iters,
-    //       sequential_index,
-    //       hostFloats,
-    //       TEMPERATURE,
-    //       false,
-    //     };
-    //     sequential_index++;
-    //     tasks.push(task);
-    //   }
-    // }
-
-    // for( int i = 0; i < sequential_index; i++){
-    //   std::shared_ptr<double> result = results.wait_and_pop();
-    //   init_energy += *result;
-    //  }
+    
         
 
 /// <---------------------------------------------------------------
-    for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-      size_t const p_idx =
-          static_cast<size_t>(unif_r(re) * view.box.particle_count) %
-          view.box.particle_count;
-    double const x = unif_r(re) - 0.5;
-    double const y = unif_r(re) - 0.5;
-    double const z = sqrt(1 - x * x - y * y);
-    double3 const offset = {
-        .x = x,
-        .y = y,
-        .z = z,
-    };
-    double3 const new_pos =
-        view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-    double const prob_rand = unif_r(re);
-    double angle = unif_r(re) * M_PI;
-    double4 rotation =
-        particle_t::random_particle_orient(angle, (i + iters) % 3);
-    init_energy += view.try_move_particle(p_idx, new_pos, rotation,
-    prob_rand,
-                                          TEMPERATURE);
-    }
+    // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
+    //   size_t const p_idx =
+    //       static_cast<size_t>(unif_r(re) * view.box.particle_count) %
+    //       view.box.particle_count;
+    // double const x = unif_r(re) - 0.5;
+    // double const y = unif_r(re) - 0.5;
+    // double const z = sqrt(1 - x * x - y * y);
+    // double3 const offset = {
+    //     .x = x,
+    //     .y = y,
+    //     .z = z,
+    // };
+    // double3 const new_pos =
+    //     view.try_random_particle_disp(p_idx, offset, MAX_STEP);
+    // double const prob_rand = unif_r(re);
+    // double angle = unif_r(re) * M_PI;
+    // double4 rotation =
+    //     particle_t::random_particle_orient(angle, (i + iters) % 3);
+    // init_energy += view.try_move_particle(p_idx, new_pos, rotation,
+    // prob_rand,
+    //                                       TEMPERATURE);
+    // }
 
     // gen.generate_random_numbers();
     // gen.copyToHost(hostFloats);
@@ -326,21 +332,21 @@ int main(int argc, char *argv[]) {
     energies.push_back(init_energy);
   }
 
-  // for (int i = 0; i < NUMTHREADS; i++){
-  //   Task task = {
-  //     view,
-  //     particle_idx,
-  //     0,
-  //     sequential_index,
-  //     hostFloats,
-  //     TEMPERATURE,
-  //     true,
-  //   };
-  //   tasks.push(task);
-  // }
-  // for(auto &t: workers){
-  //               if (t.joinable()) t.join();
-  //           }
+  for (int i = 0; i < NUMTHREADS; i++){
+    Task task = {
+      view,
+      particle_idx,
+      0,
+      sequential_index,
+      hostFloats,
+      TEMPERATURE,
+      true,
+    };
+    tasks.push(task);
+  }
+  for(auto &t: workers){
+                if (t.joinable()) t.join();
+            }
 
   auto finish = getCurrentTimeFenced();
   auto total_time = finish - start;

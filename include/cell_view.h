@@ -9,7 +9,7 @@
 #include "particle_box.h"
 #include "patch.h"
 
-static constexpr size_t MAX_PARTICLES_PER_CELL = 2047;
+static constexpr size_t MAX_PARTICLES_PER_CELL = 20;
 using rng_gen = std::uniform_real_distribution<double>;
 
 struct cell_t {
@@ -78,7 +78,7 @@ struct cell_view_t {
                                   double4 const rotation, double prob_r,
                                   double temp);
 
-  inline constexpr __host__ __device__ size_t get_cell_idx(double3 const &p) {
+  __host__ __device__ size_t get_cell_idx(double3 const &p) {
     uint3 const particle_idx = {
         .x = (uint32_t)(p.x / cell_size.x),
         .y = (uint32_t)(p.y / cell_size.y),
