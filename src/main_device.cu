@@ -195,7 +195,6 @@ __global__ void simulateParticleMovementsKernel(
     }
 }
 
-
 int main(int argc, char *argv[]) {
     size_t PARTICLE_COUNT = 200;
     size_t MOVES_PER_ITER = 200;
