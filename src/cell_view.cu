@@ -621,7 +621,7 @@ double cell_view_t::particle_energy_yukawa_device(particle_t const p) {
         const size_t cell_idx = get_cell_idx((double3){x, y, z});
         cell_t const &cell = cells[cell_idx];
 
-        if (cell.num_particles < 65) {
+        if (cell.num_particles < 400) {
 #pragma omp parallel for
           for (size_t i = 0; i < cell.num_particles; i++) {
             particle_t const &part = box.particles[cell.particle_indices[i]];
@@ -726,7 +726,7 @@ double cell_view_t::particle_energy_patch_device(particle_t const p) {
         const size_t cell_idx = get_cell_idx((double3){x, y, z});
         cell_t const &cell = cells[cell_idx];
 
-        if (cell.num_particles < 65) {
+        if (cell.num_particles < 100) {
 #pragma omp unroll partial
           for (size_t i = 0; i < cell.num_particles; i++) {
             particle_t const &part = box.particles[cell.particle_indices[i]];
@@ -734,7 +734,7 @@ double cell_view_t::particle_energy_patch_device(particle_t const p) {
               continue;
             }
 
-            result += p.interact(part);
+            result += p.interact(part, 0.89, -250);
           }
         } else {
           interact_helper<<<1, cell.num_particles>>>(
@@ -763,13 +763,15 @@ double cell_view_t::try_move_particle(size_t const p_idx, double3 const new_pos,
   particle_t const &part = box.particles[p_idx];
   particle_t p{part};
 
-  // double old_energy = particle_energy_yukawa(p);
-  double old_energy = particle_energy_yukawa(p) + particle_energy_patch(p);
+  double old_energy = particle_energy_yukawa(p);
+  // double old_energy =
+  //     particle_energy_yukawa(p) + particle_energy_patch(p, 0.89, -250);
 
   p.pos = new_pos;
   p.rotate(rotation);
-  // double new_energy = particle_energy_yukawa(p);
-  double new_energy = particle_energy_yukawa(p) + particle_energy_patch(p);
+  double new_energy = particle_energy_yukawa(p);
+  // double new_energy =
+  //     particle_energy_yukawa(p) + particle_energy_patch(p, 0.89, -250);
   double const d_energy = (new_energy - old_energy);
 
   double prob = exp(-(d_energy / temp));
@@ -796,15 +798,15 @@ double cell_view_t::try_move_particle_device(size_t const p_idx,
   particle_t const &part = box.particles[p_idx];
   particle_t p{part};
 
-  // double old_energy = particle_energy_yukawa_device(p);
-  double old_energy =
-      particle_energy_yukawa_device(p) + particle_energy_patch_device(p);
+  double old_energy = particle_energy_yukawa_device(p);
+  // double old_energy =
+  //     particle_energy_yukawa_device(p) + particle_energy_patch_device(p);
 
   p.pos = new_pos;
   p.rotate(rotation);
-  // double new_energy = particle_energy_yukawa_device(p);
-  double new_energy =
-      particle_energy_yukawa_device(p) + particle_energy_patch_device(p);
+  double new_energy = particle_energy_yukawa_device(p);
+  // double new_energy = particle_energy_yukawa_device(p) +
+  // particle_energy_patch_device(p);
   double const d_energy = (new_energy - old_energy);
 
   double prob = exp(-(d_energy / temp));

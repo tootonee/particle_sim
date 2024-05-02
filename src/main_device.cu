@@ -74,10 +74,10 @@ int main(int argc, char *argv[]) {
   // std::uniform_real_distribution<double> unif_z(0, 30);
   // cell_view_t view({30, 30, 30}, 6);
 
-  std::uniform_real_distribution<double> unif_x(0, 15);
-  std::uniform_real_distribution<double> unif_y(0, 15);
-  std::uniform_real_distribution<double> unif_z(0, 15);
-  cell_view_t view({15, 15, 15}, 2);
+  std::uniform_real_distribution<double> unif_x(0, 30);
+  std::uniform_real_distribution<double> unif_y(0, 30);
+  std::uniform_real_distribution<double> unif_z(0, 30);
+  cell_view_t view({30, 30, 30}, 3);
 
   // view.box.make_box_uniform_particles_host({10, 10, 10}, 0.5, 8);
   for (size_t i = 0; i < PARTICLE_COUNT; i++) {
@@ -139,20 +139,21 @@ int main(int argc, char *argv[]) {
 
   start = getCurrentTimeFenced();
   for (size_t iters = 1; iters <= ITERATIONS; iters++) {
-    if (iters % ITERATIONS_PER_EXPORT == 0) {
-      const size_t idx = iters / ITERATIONS_PER_EXPORT;
-      char buf[25];
-      std::sprintf(buf, "data/%06li.pdb", idx);
-      export_particles_to_pdb(view.box, buf);
-      std::cout << "I = " << iters << ", energy = " << init_energy << std::endl;
-    }
-
-    if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
-      std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 8);
-      for (const auto &[radius, value] : tmp_distr) {
-        distr[radius] += value;
-      }
-    }
+    // if (iters % ITERATIONS_PER_EXPORT == 0) {
+    //   const size_t idx = iters / ITERATIONS_PER_EXPORT;
+    //   char buf[25];
+    //   std::sprintf(buf, "data/%06li.pdb", idx);
+    //   export_particles_to_pdb(view.box, buf);
+    //   std::cout << "I = " << iters << ", energy = " << init_energy <<
+    //   std::endl;
+    // }
+    //
+    // if (iters % ITERATIONS_PER_GRF_EXPORT == 0) {
+    //   std::map<double, double> tmp_distr = do_distr(view, rho, 1, 0.02L, 8);
+    //   for (const auto &[radius, value] : tmp_distr) {
+    //     distr[radius] += value;
+    //   }
+    // }
     // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
     //   size_t const p_idx =
     //       static_cast<size_t>(unif_r(re) * view.box.particle_count) %

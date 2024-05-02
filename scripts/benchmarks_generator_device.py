@@ -4,8 +4,8 @@ import os
 import tqdm
 
 params = list(range(100, 14101, 500))
-# exe_files = ['./build/particle_sim_device']
-exe_files = ['./build/particle_sim']
+exe_files = ['./build/particle_sim_device']
+# exe_files = ['./build/particle_sim']
 
 def calculating():
     for exe_file in exe_files:
