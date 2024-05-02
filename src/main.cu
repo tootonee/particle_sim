@@ -202,7 +202,15 @@ int main(int argc, char *argv[]) {
                                               TEMPERATURE);
       }
     } else {
-      init_energy += view.add_particle_muvt(unif_x, unif_y, unif_z, re);
+      std::uniform_real_distribution<double> add_remove_prob(0.0, 1.0);
+      double muvt_probability = add_remove_prob(re);
+      init_energy += view.remove_particle_muvt(re);
+      // if (muvt_probability >= 0.5) {
+      //   init_energy += view.add_particle_muvt(unif_x, unif_y, unif_z, re);
+      // } else {
+      //   init_energy += view.remove_particle_muvt(re);
+      // }
+
     }
 
     energies.push_back(init_energy);

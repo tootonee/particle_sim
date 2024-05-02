@@ -62,6 +62,7 @@ struct cell_view_t {
   double add_particle_muvt(rng_gen &unif_x,
                         rng_gen &unif_y, rng_gen &unif_z,
                         std::mt19937 &re);
+  double remove_particle_muvt(std::mt19937 &re);
   double particle_energy_square_well(particle_t const &p,
                                      double const sigma = 0.2f,
                                      double const val = 1.0f);

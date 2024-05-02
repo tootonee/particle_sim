@@ -4,7 +4,7 @@
 #include <iostream>
 
 
-//const double mu = 0.0000000000000000000000000000000001; //p
+//const double mu = 0.01; //p
 const double h = 6.62607015e-34; //planck
 const double mass = 9.11e-30; //kg -- p
 const double boltzmann = 1.380649e-23;
@@ -34,10 +34,25 @@ double adding_probability(size_t N, double energy) {
 }
 
 
+double removing_probability(size_t N, double energy) {
+    /*
+    The parameter N is in the meaning N-1
+    energy -- initial energy, in this case it is -energy, so in the formula we do not need "-" in exp
+    */
+    std::random_device r;
+    std::mt19937 re(r());
+    std::uniform_real_distribution<double> unif_r(0.0, 1.0);
+    double random_num = unif_r(re);
+    return random_num;
+    //return (wavelength * wavelength * wavelength) * (N+1) / (V * z) * exp(beta * energy) //we need here N, but have N-1 parameter
+}
+
+
+
 double cell_view_t::add_particle_muvt(rng_gen &unif_x,
                         rng_gen &unif_y, rng_gen &unif_z,
                         std::mt19937 &re) {
-
+    std::cout << "--ADDING MUVT--" << std::endl;
     std::cout << "initial number of particles: " << box.particle_count << std::endl;
 
     if (box.capacity <= box.particle_count) {
@@ -87,8 +102,28 @@ double cell_view_t::add_particle_muvt(rng_gen &unif_x,
 }
 
 
-double cell_view_t::remove_particle_muvt (rng_gen &unif_x,
-    rng_gen &unif_y, rng_gen &unif_z,
-    std::mt19937 &re) {
-        
-    }
+double cell_view_t::remove_particle_muvt(std::mt19937 &re) {
+    std::cout << "--REMOVING MUVT--" << std::endl;
+    std::uniform_int_distribution<int> removing_particle(1, box.particle_count);
+    int index_particle = removing_particle(re);
+    
+    particle_t chosen_particle = box.particles[index_particle]; //we have chosen a particle
+    double old_energy = particle_energy_yukawa(chosen_particle) + particle_energy_patch(chosen_particle);
+    std::cout << "old energy: " << old_energy << std::endl;
+
+    std::uniform_real_distribution<double> unif_r(0.0, 1.0);
+    double random_num = unif_r(re);
+    double probability = removing_probability(box.particle_count, old_energy); //particle count after removing -> N-1
+
+    if (random_num < probability) {
+        std::cout << "number of particles before removing: " << box.particle_count << std::endl;
+        std::cout << "particle index: " << chosen_particle.idx << std::endl;
+        std::cout << "particle position: (" << chosen_particle.pos.x << ", " << chosen_particle.pos.y << ", " << chosen_particle.pos.z << ")" << std::endl;
+        remove_particle_from_box(chosen_particle);
+
+        std::cout << "number of particles after removing: " << box.particle_count << std::endl;
+        return -old_energy; //new = 0; new-old = -old
+    }      
+                                  
+    return 0;
+}
