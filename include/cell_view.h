@@ -41,23 +41,6 @@ struct cell_view_t {
                 .y = box.dimensions.y / cells_per_axis,
                 .z = box.dimensions.z / cells_per_axis,
         };
-        std::vector<int> domainAssignments;
-        domainAssignments.resize(cell_count);
-
-        for (size_t x = 0; x < cells_per_axis; ++x) {
-            for (size_t y = 0; y < cells_per_axis; ++y) {
-                for (size_t z = 0; z < cells_per_axis; ++z) {
-                    size_t cell_index = x * cells_per_axis * cells_per_axis + y * cells_per_axis + z;
-                    bool x_odd = x % 2 != 0;
-                    bool y_odd = y % 2 != 0;
-                    bool z_odd = z % 2 != 0;
-
-                    int domain = 1 + (x_odd ? 0 : 4) + (y_odd ? 0 : 2) + (z_odd ? 0 : 1);
-                    domainAssignments[cell_index] = domain;
-                }
-            }
-        }
-
         alloc_cells();
     }
 
@@ -133,5 +116,20 @@ __host__ __device__ size_t get_cell_idx_device(
 double3 cell_size,
         double3 box_dimensions
 );
+__host__ __device__ double particle_energy_yukawa_device_dev(particle_t const p, double3 box_dimensions, double3 cell_size, cell_t* cells,particle_t* particles,size_t* cell_indices, particle_t* particles_device);
+__host__  __device__
+double try_move_particle_device_dev(
+        particle_t* particles,
+        size_t p_idx,
+double3 new_pos,
+        double4 rotation,
+double prob_r,
+double temp,
+        double3 box_dimensions,
+double3 cell_size,
+        cell_t* cells,
+size_t* cell_indices, particle_t* particles_device
 
+
+);
 #endif

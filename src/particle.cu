@@ -101,3 +101,16 @@ void particle_t::add_patch(patch_t const &p) {
   patches[patch_count] = p;
   patch_count++;
 }
+__host__ __device__ double4 particle_t::random_particle_orient_device(double angle, int axis) {
+    const double cos_2 = cos(angle / 2);
+    const double sin_2 = sin(angle / 2);
+
+    switch (axis) {
+        case 2:
+            return make_double4(cos_2, 0, 0, sin_2);
+        case 1:
+            return make_double4(cos_2, 0, sin_2, 0);
+        default:
+            return make_double4(cos_2, sin_2, 0, 0);
+    }
+}

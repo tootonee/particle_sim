@@ -999,3 +999,137 @@ double cell_view_t::particle_energy_patch(particle_t const &p,
     }
     return result;
 }
+
+
+//__host__  __device__
+//double try_move_particle_device_dev(
+//        particle_t* particles,
+//        size_t p_idx,
+//        double3 new_pos,
+//        double4 rotation,
+//        double prob_r,
+//        double temp,
+//        double3 box_dimensions,
+//        double3 cell_size,
+//        cell_t* cells,
+//        size_t* cell_indices,
+//        particle_t* particles_device
+//
+//
+//) {
+//    if (new_pos.x == -1) {
+//        return 0;
+//    }
+//
+//    particle_t part = particles[p_idx];
+//    particle_t p = part;
+//
+//    double old_energy = particle_energy_yukawa_device_dev(p, box_dimensions, cell_size, cells,particles,cell_indices, particles_device);
+////            + particle_energy_patch_device(p); // i tried firstly just on particle_energy_yukawa_device_dev
+//
+////    p.pos = new_pos;
+////    p.rotate(rotation);
+////
+////    double new_energy = particle_energy_yukawa_device(p) + particle_energy_patch_device(p);
+////    double const d_energy = (new_energy - old_energy);
+////
+////    double prob = exp(-(d_energy / temp));
+////    if (prob_r >= prob) {
+////        return 0;
+////    }
+////
+////    particles[p_idx] = p;
+//    return old_energy; //to change on new_energy
+//}
+//__host__ __device__ double particle_energy_yukawa_device_dev(particle_t const p, double3 box_dimensions, double3 cell_size, cell_t* cells,particle_t* particles,size_t* cell_indices, particle_t* particles_device) {
+//    double const dist = 6;
+//    double* energies_per_cell = new double[MAX_PARTICLES_PER_CELL]();
+//    double3 coeff_val = {
+//            .x = ceil(dist / cell_size.x),
+//            .y = ceil(dist / cell_size.y),
+//            .z = ceil(dist / cell_size.z),
+//    };
+//
+//    double result = 0.0F;
+//#pragma omp parallel for
+//    for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
+//        double x = p.pos.x + coeff_x * cell_size.x;
+//        double3 offset{0, 0, 0};
+//        if (x < 0) {
+//            x += box_dimensions.x;
+//            offset.x = box_dimensions.x;
+//        }
+//        if (x >= box_dimensions.x) {
+//            x -= box_dimensions.x;
+//            offset.x = -box_dimensions.x;
+//        }
+//#pragma omp parallel for
+//        for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
+//            double y = p.pos.y + coeff_y * cell_size.y;
+//            if (y < 0) {
+//                y += box_dimensions.y;
+//                offset.y = box_dimensions.y;
+//            }
+//            if (y >= box_dimensions.y) {
+//                y -= box_dimensions.y;
+//                offset.y = -box_dimensions.y;
+//            }
+//#pragma omp parallel for
+//            for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z;
+//                 coeff_z += 1) {
+//                double z = p.pos.z + coeff_z * cell_size.z;
+//                if (z < 0) {
+//                    z += box_dimensions.z;
+//                    offset.z = box_dimensions.z;
+//                }
+//                if (z >= box_dimensions.z) {
+//                    z -= box_dimensions.z;
+//                    offset.z = -box_dimensions.z;
+//                }
+//
+//                const size_t cell_idx = get_cell_idx_device((double3){x, y, z}, cell_size, box_dimensions);
+//                cell_t const &cell = cells[cell_idx];
+//
+//                if (cell.num_particles < 65) {
+//#pragma omp parallel for
+//                    for (size_t i = 0; i < cell.num_particles; i++) {
+//                        particle_t const &part = particles[cell.particle_indices[i]];
+//                        if (part.idx == p.idx) {
+//                            continue;
+//                        }
+//
+//                        double3 part_pos = {
+//                                .x = part.pos.x - offset.x,
+//                                .y = part.pos.y - offset.y,
+//                                .z = part.pos.z - offset.z,
+//                        };
+//
+//                        double d_p_part = distance(p.pos, part_pos);
+//                        result += 0.5 * exp(-1.5 * (d_p_part - 1)) / d_p_part;
+//                    }
+//                } else {
+//                    double3 p_pos = {
+//                            .x = p.pos.x + offset.x,
+//                            .y = p.pos.y + offset.y,
+//                            .z = p.pos.z + offset.z,
+//                    };
+//
+//                    size_t blocks = cell.num_particles / 256 + 1;
+//                    size_t threads = cell.num_particles > 256 ? 256 : cell.num_particles;
+//                    energy_yukawa_helper<<<blocks, threads>>>(
+//                            p, p_pos, cell_idx, cell.num_particles, cell_indices,
+//                            particles_device, energies_per_cell);
+////                    cudaMemcpy(energies, energies_device,
+////                               sizeof(double) * cell.num_particles,
+////                               cudaMemcpyDeviceToHost);
+//#pragma omp parallel for
+//                    for (size_t i = 0; i < cell.num_particles; i++) {
+//                        result += energies_per_cell[i];
+//                    }
+//                }
+//            }
+//        }
+//    }
+//    delete[] energies_per_cell;
+//    return result;
+//}
