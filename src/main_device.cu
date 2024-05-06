@@ -20,6 +20,16 @@
 #include <sstream>
 #include <vector>
 
+struct SimulationContext {
+    double3 cell_size;
+    size_t* cell_indices;
+    size_t cells_per_axis;
+    particle_t* particles;
+    size_t particle_count;
+    double3 dimensions;
+};
+
+
 std::vector<size_t> getCellsInDomain(const cell_view_t& view, int domainNumber) {
     std::vector<size_t> cellsInDomain;
     size_t cells_per_axis = view.cells_per_axis;
@@ -110,9 +120,55 @@ struct ParticleMovement {
     double3 newPos;
 };
 
+//__global__ void simulateParticleMovementsKernel(
+//        cell_view_t view,
+//        double* hostFloats,
+//        size_t movesPerIter,
+//        double* energies,
+//        int iters,
+//        double maxStep,
+//        double temperature,
+//        size_t* cellIndices,
+//        size_t numCells,
+//        ParticleMovement* movements
+//) {
+//    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+//    if (idx < numCells) {
+//        int cellIndex = cellIndices[idx];
+//        printf("Thread %d, Block %d, Cell Index: %d\n", threadIdx.x, blockIdx.x, cellIndex);
+//        cell_t cell = view.cells[cellIndex];
+//        double initEnergy = 0.0;
+//        printf("Checking1");
+//        for (size_t i = 0; i < movesPerIter; i++) {
+//            size_t r_idx = i * 6;
+//            if (cell.num_particles == 0) continue;
+//            printf("Checking2");
+//            size_t particleIndexInCell = static_cast<size_t>(hostFloats[r_idx] * cell.num_particles) % cell.num_particles;
+//            size_t p_idx = cell.particle_indices[particleIndexInCell];
+//
+//            double3 offset = {
+//                    hostFloats[r_idx + 1] - 0.5,
+//                    hostFloats[r_idx + 2] - 0.5,
+//                    hostFloats[r_idx + 3] - 0.5
+//            };
+//            double3 new_pos = view.try_random_particle_disp_device(view.cells,view.cell_size, view.cell_indices, view.cells_per_axis,view.box.particles,view.box.particle_count,view.box.dimensions,p_idx, offset, maxStep);
+////            double prob_rand = hostFloats[r_idx + 4];
+////            double angle = hostFloats[r_idx + 5] * M_PI;
+////            double4 rotation = particle_t::random_particle_orient_device(angle, (i + iters) % 3);
+////
+////            initEnergy += view.try_move_particle_device(p_idx, new_pos, rotation, prob_rand, temperature);
+//            movements[idx * movesPerIter + i].p_idx = p_idx;
+//            movements[idx * movesPerIter + i].cellIndex = cellIndex;
+//            movements[idx * movesPerIter + i].newPos = new_pos;
+//        }
+//
+//        energies[idx] = initEnergy;
+//    }
+//}
+
 __global__ void simulateParticleMovementsKernel(
-        cell_view_t view,
-        double* hostFloats,
+        cell_t* cells,
+        double* devFloats,
         size_t movesPerIter,
         double* energies,
         int iters,
@@ -120,39 +176,35 @@ __global__ void simulateParticleMovementsKernel(
         double temperature,
         size_t* cellIndices,
         size_t numCells,
-        ParticleMovement* movements
+        ParticleMovement* movements,
+        SimulationContext* context
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < numCells) {
-        size_t cellIndex = cellIndices[idx];
-        cell_t cell = view.cells[cellIndex];
+        int cellIndex = cellIndices[idx];
+        cell_t cell = cells[cellIndex];
         double initEnergy = 0.0;
 
         for (size_t i = 0; i < movesPerIter; i++) {
             size_t r_idx = i * 6;
             if (cell.num_particles == 0) continue;
-            size_t particleIndexInCell = static_cast<size_t>(hostFloats[r_idx] * cell.num_particles) % cell.num_particles;
-            size_t p_idx = cell.particle_indices[particleIndexInCell];
+            size_t particleIndexInCell = static_cast<size_t>(devFloats[r_idx] * cell.num_particles) % cell.num_particles;
+            int p_idx = cell.particle_indices[particleIndexInCell];
 
             double3 offset = {
-                    hostFloats[r_idx + 1] - 0.5,
-                    hostFloats[r_idx + 2] - 0.5,
-                    hostFloats[r_idx + 3] - 0.5
+                    devFloats[r_idx + 1] - 0.5,
+                    devFloats[r_idx + 2] - 0.5,
+                    devFloats[r_idx + 3] - 0.5
             };
-            double3 new_pos = view.try_random_particle_disp_device(view.cells,view.cell_size, view.cell_indices, view.cells_per_axis,view.box.particles,view.box.particle_count,view.box.dimensions,p_idx, offset, maxStep);
-//            double prob_rand = hostFloats[r_idx + 4];
-//            double angle = hostFloats[r_idx + 5] * M_PI;
-//            double4 rotation = particle_t::random_particle_orient_device(angle, (i + iters) % 3);
-//
-//            initEnergy += view.try_move_particle_device(p_idx, new_pos, rotation, prob_rand, temperature);
+            double3 new_pos = try_random_particle_disp_device(cells, context->cell_size, context->cell_indices, context->cells_per_axis, context->particles, context->particle_count, context->dimensions, p_idx, offset);
             movements[idx * movesPerIter + i].p_idx = p_idx;
             movements[idx * movesPerIter + i].cellIndex = cellIndex;
             movements[idx * movesPerIter + i].newPos = new_pos;
         }
-
         energies[idx] = initEnergy;
     }
 }
+
 int main(int argc, char *argv[]) {
     size_t PARTICLE_COUNT = 200;
     size_t MOVES_PER_ITER = 200;
@@ -259,9 +311,9 @@ int main(int argc, char *argv[]) {
                 distr[radius] += value;
             }
         }
-
         gen.generate_random_numbers();
-        gen.copyToHost(hostFloats);
+//        gen.copyToHost(hostFloats);
+//        simulateParticleMovements(view,hostFloats, moves_per_iter,init_energy, iters, MAX_STEP, TEMPERATURE);
 
         size_t numCells = cellsInDomain.size();
         double *hostEnergies = new double[numCells];
@@ -279,12 +331,34 @@ int main(int argc, char *argv[]) {
         ParticleMovement *deviceMovements;
         cudaMalloc(&deviceMovements, numCells * moves_per_iter * sizeof(ParticleMovement));
 
-        dim3 blockSize(256);
-        dim3 gridSize((numCells + blockSize.x - 1) / blockSize.x);
+        int n = view.cells_per_axis* view.cells_per_axis* view.cells_per_axis;
+        cell_t* deviceCells;
+        cudaMalloc(&deviceCells, sizeof(cell_t) * n);
+        cudaMemcpy(deviceCells, view.cells, sizeof(cell_t) * n, cudaMemcpyHostToDevice);
+
+        SimulationContext hostContext;
+        hostContext.cell_size = view.cell_size;
+        hostContext.cells_per_axis = view.cells_per_axis;
+        hostContext.particle_count = view.box.particle_count;
+        hostContext.dimensions = view.box.dimensions;
+
+        cudaMalloc(&hostContext.particles, sizeof(particle_t) * view.box.particle_count);
+        cudaMemcpy(hostContext.particles, view.box.particles, sizeof(particle_t) * view.box.particle_count, cudaMemcpyHostToDevice);
+
+        cudaMalloc(&hostContext.cell_indices, sizeof(size_t) * n); // Assuming n is the total number of cell indices
+        cudaMemcpy(hostContext.cell_indices, view.cell_indices, sizeof(size_t) * n, cudaMemcpyHostToDevice);
+
+        SimulationContext* deviceContext;
+        cudaMalloc(&deviceContext, sizeof(SimulationContext));
+        cudaMemcpy(deviceContext, &hostContext, sizeof(SimulationContext), cudaMemcpyHostToDevice);
+
+
+        dim3 blockSize(numCells);
+        dim3 gridSize(1);
 
         simulateParticleMovementsKernel<<<gridSize, blockSize>>>(
-                view, hostFloats, moves_per_iter, deviceEnergies, iters, MAX_STEP, TEMPERATURE, deviceCellIndices,
-                numCells, deviceMovements
+                deviceCells, gen.devFloats, moves_per_iter, deviceEnergies, iters, MAX_STEP, TEMPERATURE, deviceCellIndices,
+                numCells, deviceMovements, deviceContext
         );
 
         cudaMemcpy(hostEnergies, deviceEnergies, numCells * sizeof(double), cudaMemcpyDeviceToHost);
@@ -300,7 +374,6 @@ int main(int argc, char *argv[]) {
             double3 new_pos = movement.newPos;
             if (!(new_pos.x == -1 && new_pos.y == -1 && new_pos.z == -1)) {
                 view.box.particles[movement.p_idx].pos = new_pos;
-                std::cout<<new_pos.x;
             }
         }
         for (size_t i = 0; i < numCells; i++) {

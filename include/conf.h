@@ -4,7 +4,7 @@
 #define CONF
 
 constexpr size_t ITERATIONS = 5000;
-constexpr size_t ITERATIONS_PER_EXPORT = 100;
+constexpr size_t ITERATIONS_PER_EXPORT = 50;
 constexpr size_t ITERATIONS_PER_GRF_EXPORT = 2500;
 constexpr double TEMPERATURE = 60;
 constexpr double MAX_STEP = 0.5;

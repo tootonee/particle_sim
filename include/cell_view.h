@@ -73,35 +73,6 @@ struct cell_view_t {
                                      double3 const offset,
                                      double const scale = 2.0F);
 
-    __device__ bool particle_intersects_device(
-            particle_t* particles,
-            size_t particle_idx,
-            double3 cell_size,
-            double3 box_dimensions,
-            size_t* cell_indices,
-            size_t cell_count,
-            cell_t* cells
-    );
-
-    __device__ size_t get_cell_idx_device(
-            double3 position,
-    double3 cell_size,
-            double3 box_dimensions
-    );
-
-    __device__ double3 try_random_particle_disp_device(
-            cell_t* cells,
-    double3 cell_size,
-            size_t* cell_indices,
-    size_t cell_count,
-            particle_t* particles,
-    size_t particle_count,
-            double3 box_dimensions,
-    size_t particle_idx,
-            double3 offset,
-    double scale
-    );
-
     bool add_particle_async(particle_t const &p);
     bool add_particle(particle_t const &p);
     void remove_particle(particle_t const &p);
@@ -137,4 +108,30 @@ struct cell_view_t {
 
     bool particle_intersects(particle_t const &p);
 };
+__host__ __device__ double3 try_random_particle_disp_device(
+        cell_t* cells,
+        double3 cell_size,
+        size_t* cell_indices,
+        size_t cell_count,
+        particle_t* particles,
+        size_t particle_count,
+        double3 box_dimensions,
+        size_t particle_idx,
+        double3 offset
+);
+__host__ __device__ bool particle_intersects_device(
+        particle_t* particles,
+        size_t particle_idx,
+double3 cell_size,
+        double3 box_dimensions,
+size_t* cell_indices,
+        size_t cell_count,
+cell_t* cells
+);
+__host__ __device__ size_t get_cell_idx_device(
+        double3 position,
+double3 cell_size,
+        double3 box_dimensions
+);
+
 #endif

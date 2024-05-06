@@ -118,18 +118,18 @@ double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
         disp.z -= box.dimensions.z;
     }
 
-    box.particles[particle_idx].pos = disp;
+//    box.particles[particle_idx].pos = disp;
 
     if (particle_intersects(box.particles[particle_idx])) {
-        box.particles[particle_idx].pos = old_pos;
+//        box.particles[particle_idx].pos = old_pos;
         return {-1, -1, -1};
     }
 
-    box.particles[particle_idx].pos = old_pos;
+//    box.particles[particle_idx].pos = old_pos;
     return disp;
 }
 
-__device__ double3 cell_view_t::try_random_particle_disp_device(
+__host__ __device__ double3 try_random_particle_disp_device(
         cell_t* cells,
         double3 cell_size,
         size_t* cell_indices,
@@ -138,19 +138,18 @@ __device__ double3 cell_view_t::try_random_particle_disp_device(
         size_t particle_count,
         double3 box_dimensions,
         size_t particle_idx,
-        double3 offset,
-        double scale
+        double3 offset
 ) {
+    double MAX_STEP = 0.5;
     if (particle_idx >= particle_count) {
         return make_double3(-1, -1, -1);
     }
     particle_t const &p_orig = particles[particle_idx];
     const double3 old_pos = p_orig.pos;
-
     double3 disp = make_double3(
-            2 * scale * offset.x,
-            2 * scale * offset.y,
-            2 * scale * offset.z
+            2 * MAX_STEP * offset.x,
+            2 * MAX_STEP * offset.y,
+            2 * MAX_STEP * offset.z
     );
 
     disp = make_double3(
@@ -177,16 +176,16 @@ __device__ double3 cell_view_t::try_random_particle_disp_device(
     if (disp.z >= box_dimensions.z) {
         disp.z -= box_dimensions.z;
     }
-
+        particles[particle_idx].pos = disp;
     if (particle_intersects_device(particles, particle_idx, cell_size,box_dimensions,
                                    cell_indices,
                                    cell_count,
                                    cells)) {
-//        particles[particle_idx].pos = old_pos;
+        particles[particle_idx].pos = old_pos;
         return make_double3(-1, -1, -1);
     }
 
-//    particles[particle_idx].pos = disp;  //to make outside of the function
+    particles[particle_idx].pos = old_pos;  //to make outside of the function
     return disp;
 }
 // double3 cell_view_t::try_random_particle_disp(size_t const particle_idx,
@@ -330,7 +329,7 @@ bool cell_view_t::particle_intersects(particle_t const &p) {
     }
     return false;
 }
-__device__ bool cell_view_t::particle_intersects_device(
+__host__ __device__ bool particle_intersects_device(
         particle_t* particles,
         size_t particle_idx,
         double3 cell_size,
@@ -350,25 +349,26 @@ __device__ bool cell_view_t::particle_intersects_device(
     for (double coeff_x = -coeff_val.x; coeff_x <= coeff_val.x; coeff_x += 1) {
         double x = p.pos.x + coeff_x * cell_size.x;
         if (x < 0) x += box_dimensions.x;
-        if (x >= box_dimensions.x) x -= box_dimensions.x;
-
+        if (x > box_dimensions.x) x -= box_dimensions.x;
         for (double coeff_y = -coeff_val.y; coeff_y <= coeff_val.y; coeff_y += 1) {
             double y = p.pos.y + coeff_y * cell_size.y;
             if (y < 0) y += box_dimensions.y;
-            if (y >= box_dimensions.y) y -= box_dimensions.y;
-
+            if (y > box_dimensions.y) y -= box_dimensions.y;
             for (double coeff_z = -coeff_val.z; coeff_z <= coeff_val.z; coeff_z += 1) {
                 double z = p.pos.z + coeff_z * cell_size.z;
                 if (z < 0) z += box_dimensions.z;
-                if (z >= box_dimensions.z) z -= box_dimensions.z;
+                if (z > box_dimensions.z) z -= box_dimensions.z;
                 double3 position = make_double3(x, y, z);
+//                printf("X= %f\n", position.x);
+//                printf("Y= %f\n", position.y);
+//                printf("Z= %f\n", position.z);
                 size_t cell_idx = get_cell_idx_device(position, cell_size, box_dimensions);
+//                printf("cell_idx %d\n", cell_idx);
                 if (cell_idx >= cell_cnt) continue;
-
                 cell_t const &cell = cells[cell_idx];
+//                printf("NUM OF PARTICLES %d\n", cell.num_particles);
                 for (size_t i = 0; i < cell.num_particles; i++) {
-                    size_t idx = cell_indices[cell_idx * MAX_PARTICLES_PER_CELL + i];
-                    if (idx != particle_idx && particles[idx].intersects(p)) {
+                    if (particles[cell.particle_indices[i]].intersects(p)) {
                         return true;
                     }
                 }
@@ -378,7 +378,7 @@ __device__ bool cell_view_t::particle_intersects_device(
     return false;
 }
 
-__device__ size_t cell_view_t::get_cell_idx_device(double3 position, double3 cell_size, double3 box_dimensions) {
+__host__ __device__ size_t get_cell_idx_device(double3 position, double3 cell_size, double3 box_dimensions) {
     uint3 idx = {
             .x = static_cast<uint>(position.x / cell_size.x) % static_cast<uint>(box_dimensions.x / cell_size.x),
             .y = static_cast<uint>(position.y / cell_size.y) % static_cast<uint>(box_dimensions.y / cell_size.y),
