@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
     //     .pos = {1, 0, -1, 0},
     // });
   }
-  // std::cout << "Particle gen done!\n";
+  std::cout << "Particle gen done!\n";
 
   double const rho =
       view.box.particle_count /
@@ -191,6 +191,8 @@ int main(int argc, char *argv[]) {
   ThreadSafeQueue<Task> tasks;
   std::vector<std::thread> workers;
   std::mutex mutex;
+  std::vector<Task> task_array;
+  std::vector<double> cpu_number;
 
 
     for (int i = 0; i < NUMTHREADS; ++i) {
@@ -249,86 +251,97 @@ int main(int argc, char *argv[]) {
 /// <---------------------------------------------------------------
 
 /// <---------------------------------------------------------------
-/// CODE FOR SAFE QUEUE;
+/// CODE FOR SAFE QUEUE with gen gpu;
 
-    gen.generate_random_numbers();
-    gen.copyToHost(hostFloats);
+    // gen.generate_random_numbers();
+    // gen.copyToHost(hostFloats);
+    // sequential_index = 0;
+    // std::vector<Task> task_vector;
+    // while(sequential_index < MOVES_PER_ITER){
+    //   // std::cout << "works here 1" << std::endl;
+    //   domain = unif_domain(re);
+    //   task_array.clear();
+    //   for (auto cell : domain_decomposition[domain]){
+    //     num_particles = view.cells[cell].num_particles;
+    //     particle_idx = view.cells[cell].particle_indices[(int)(num_particles * unif_r(re))];
+    //     Task task = {
+    //       view,
+    //       particle_idx,
+    //       iters,
+    //       sequential_index,
+    //       hostFloats,
+    //       TEMPERATURE,
+    //       false,
+    //     };
+    //     sequential_index++;
+    //     // task_array.emplace_back(task);
+    //     tasks.push(task);
+        
+    //     // std::cout << "works here 2" << std::endl;
+    //   }
+    //   // std::cout << "works here 3" << std::endl;
+    //   // for (int i = 0; i < task_array.size(); i++){
+    //   //   tasks.push(task_array[i]);
+    //   // }
+    //   // std::cout << "works here 4" << std::endl;
+    //   for( int i = 0; i < domain_decomposition[domain].size(); i++){
+    //   std::shared_ptr<double> result = results.wait_and_pop();
+    //   init_energy += *result;
+    //  }
+    // //  std::cout << "Energy" << init_energy << std::endl;
+    // }
+
+    
+/// <---------------------------------------------------------------
+/// CODE FOR SAFE QUEUE with gen cpu;
     sequential_index = 0;
     std::vector<Task> task_vector;
+    
     while(sequential_index < MOVES_PER_ITER){
+      // std::cout << "works here 1" << std::endl;
       domain = unif_domain(re);
+      cpu_number.clear();
+      task_array.clear();
+      for(int i = 0; i < domain_decomposition[domain].size(); i++){
+        for(int j = 0; j < 6; j++){
+          cpu_number.push_back(unif_r(re));
+        }
+      }
+      int part_num = 0;
       for (auto cell : domain_decomposition[domain]){
         num_particles = view.cells[cell].num_particles;
         particle_idx = view.cells[cell].particle_indices[(int)(num_particles * unif_r(re))];
+        
         Task task = {
           view,
           particle_idx,
           iters,
-          sequential_index,
-          hostFloats,
+          part_num,
+          cpu_number,
           TEMPERATURE,
           false,
         };
+        part_num++;
         sequential_index++;
+        // task_array.emplace_back(task);
         tasks.push(task);
+        
+        // std::cout << "works here 2" << std::endl;
       }
+      // std::cout << "works here 3" << std::endl;
+      // for (int i = 0; i < task_array.size(); i++){
+      //   tasks.push(task_array[i]);
+      // }
+      // std::cout << "works here 4" << std::endl;
       for( int i = 0; i < domain_decomposition[domain].size(); i++){
       std::shared_ptr<double> result = results.wait_and_pop();
       init_energy += *result;
      }
+    //  std::cout << "Energy" << init_energy << std::endl;
     }
 
-    
-        
 
-/// <---------------------------------------------------------------
-    // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-    //   size_t const p_idx =
-    //       static_cast<size_t>(unif_r(re) * view.box.particle_count) %
-    //       view.box.particle_count;
-    // double const x = unif_r(re) - 0.5;
-    // double const y = unif_r(re) - 0.5;
-    // double const z = sqrt(1 - x * x - y * y);
-    // double3 const offset = {
-    //     .x = x,
-    //     .y = y,
-    //     .z = z,
-    // };
-    // double3 const new_pos =
-    //     view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-    // double const prob_rand = unif_r(re);
-    // double angle = unif_r(re) * M_PI;
-    // double4 rotation =
-    //     particle_t::random_particle_orient(angle, (i + iters) % 3);
-    // init_energy += view.try_move_particle(p_idx, new_pos, rotation,
-    // prob_rand,
-    //                                       TEMPERATURE);
-    // }
 
-    // gen.generate_random_numbers();
-    // gen.copyToHost(hostFloats);
-    // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
-    //   size_t const r_idx = i * 6;
-    //   size_t const p_idx =
-    //       static_cast<size_t>(hostFloats[r_idx] * view.box.particle_count) %
-    //       view.box.particle_count;
-    //   double const x = hostFloats[r_idx + 1] - 0.5;
-    //   double const y = hostFloats[r_idx + 2] - 0.5;
-    //   double const z = sqrt(1 - x * x - y * y);
-    //   double3 const offset = {
-    //       .x = x,
-    //       .y = y,
-    //       .z = z,
-    //   };
-    //   double3 const new_pos =
-    //       view.try_random_particle_disp(p_idx, offset, MAX_STEP);
-    //   double const prob_rand = hostFloats[r_idx + 4];
-    //   double angle = hostFloats[r_idx + 5] * M_PI;
-    //   double4 rotation =
-    //       particle_t::random_particle_orient(angle, (i + iters) % 3);
-    //   init_energy += view.try_move_particle(p_idx, new_pos, rotation, prob_rand,
-    //                                         TEMPERATURE);
-    // }
     energies.push_back(init_energy);
   }
 
@@ -338,7 +351,7 @@ int main(int argc, char *argv[]) {
       particle_idx,
       0,
       sequential_index,
-      hostFloats,
+      cpu_number,
       TEMPERATURE,
       true,
     };

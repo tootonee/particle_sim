@@ -301,6 +301,7 @@ int main(int argc, char *argv[]) {
 
     // gen.generate_random_numbers();
     // gen.copyToHost(hostFloats);
+
     // for (size_t i = 0; i < MOVES_PER_ITER; i++) {
     //   size_t const r_idx = i * 6;
     //   size_t const p_idx =

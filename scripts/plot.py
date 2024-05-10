@@ -18,11 +18,11 @@ def plot_lines(line1_data, line2_data, output_file = "rng_comp.svg"):
     y_values2 = list(line2_data.values())
 
     plt.plot(x_values_1, y_values1, label='CPU calculation')
-    plt.plot(x_values_2, y_values2, label='GPU calculation')
+    plt.plot(x_values_2, y_values2, label='CPU_Parallel calculation')
 
-    plt.xlabel('Amount of particles in system')
-    plt.ylabel('Time to run 1, 000 iterations')
-    plt.title('Comparison of GPU energy calculation efficacy')
+    plt.xlabel('Number of moves per iteration')
+    plt.ylabel('Time to run 5, 000 iterations')
+    plt.title('Comparison of CPU energy calculation efficency')
     plt.legend()
     plt.grid(True)
 
@@ -32,7 +32,7 @@ def plot_lines(line1_data, line2_data, output_file = "rng_comp.svg"):
 
 def main():
     json_file1 = 'particle_sim.json'
-    json_file2 = 'particle_sim_device.json'
+    json_file2 = 'particle_sim_queue.json'
 
     line1_data = read_json(json_file1)
     line2_data = read_json(json_file2)

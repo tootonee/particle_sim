@@ -16,7 +16,7 @@ struct Task
     size_t particle_idx;
     size_t iters;
     size_t sequential_index;
-    double *hostFloats;
+    std::vector<double> hostFloats;
     double temp;
     bool end;
 };
